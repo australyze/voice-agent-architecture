@@ -2,7 +2,7 @@
 
 Implementing repository for an AI Agent Runtime. Methodology lives in `lidr-specboot/`. OpenSpec changes live in `openspec/`.
 
-This repository is a bootable hexagonal AI Agent Runtime plus an inbound voice channel adapter. Vapi is an interaction adapter, not the runtime. The first voice turn returns a deterministic runtime placeholder (no LLM).
+This repository is a bootable hexagonal AI Agent Runtime plus an inbound voice channel adapter. Vapi is an interaction adapter, not the runtime. A valid inbound turn runs the `runtime-demo` agent (mocked LLM in CI) and returns a structured reply.
 
 Architecture decisions that bind later components: [docs/architecture.md](./docs/architecture.md).
 
@@ -42,8 +42,12 @@ Required environment variables:
 | `VOICE_PROVIDER_BASE_URL` | Optional `http(s)` URL. If present it must be valid. |
 | `VOICE_TIMEOUT_MS` | Optional handling timeout. Default `2000`. |
 | `VOICE_DEFAULT_LOCALE` | Optional language tag. Default `es`. |
+| `LLM_BASE_URL` | Optional `http(s)` completions base. Empty uses the in-process fake LLM. |
+| `LLM_API_KEY` | Required when `LLM_BASE_URL` is set. |
+| `LLM_MODEL_ID` | Optional. Default `fake`. |
+| `LLM_TIMEOUT_MS` | Optional model budget. Default `1500`. |
 
-The process starts without voice credentials. Invalid *present* voice settings fail closed.
+The process starts without voice or LLM credentials. Invalid *present* voice or LLM settings fail closed. See [docs/agents/runtime-demo.md](./docs/agents/runtime-demo.md).
 
 ## Run
 
@@ -82,7 +86,7 @@ curl -s http://127.0.0.1:3000/health/voice
 Configured example (put the secret only in `.env`):
 
 ```bash
-curl -s -X POST http://127.0.0.1:3000/adapters/voice/inbound -H "content-type: application/json" -H "x-voice-inbound-secret: YOUR_SECRET" -d "{\"eventType\":\"transcript\",\"occurredAt\":\"2026-09-05T12:00:00.000Z\",\"inputText\":\"hola\",\"sessionId\":\"11111111-1111-4111-8111-111111111111\"}"
+curl -s -X POST http://127.0.0.1:3000/adapters/voice/inbound -H "content-type: application/json" -H "x-voice-inbound-secret: YOUR_SECRET" -d "{\"eventType\":\"transcript\",\"occurredAt\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",\"inputText\":\"hola\",\"sessionId\":\"11111111-1111-4111-8111-111111111111\"}"
 ```
 
 Logs are JSON lines. Successful turns use `operation=voice.turn` with correlation ids, `eventType`, `processingTimeMs`, and `status`. Secrets and raw utterances are not logged.
@@ -100,6 +104,8 @@ Not required for Definition of Done. Tunnel loopback if needed and point an engi
 | `VOICE_PAYLOAD_INVALID` | Body failed strict validation |
 | `VOICE_EVENT_UNSUPPORTED` | `eventType` is not `transcript` |
 | `VOICE_TIMEOUT` | Handling exceeded `VOICE_TIMEOUT_MS` |
+| `VOICE_STALE` | `occurredAt` outside `VOICE_INBOUND_MAX_SKEW_MS` |
+| `VOICE_RATE_LIMITED` | Authenticated inbound exceeded the per-secret window |
 
 To expose beyond this machine, set `LISTEN_HOST=0.0.0.0` only on a controlled network.
 
@@ -120,7 +126,7 @@ npm run typecheck
 ```text
 src/domain          application core and ports
 src/application     use cases
-src/adapters        HTTP, voice inbound, PostgreSQL, logging
+src/adapters        HTTP, voice inbound, LLM, tools, PostgreSQL, logging
 src/composition     process entry
 ```
 

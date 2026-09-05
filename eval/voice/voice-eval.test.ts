@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../../src/adapters/http/create-server.js";
 import { VOICE_INBOUND_SECRET_HEADER } from "../../src/adapters/voice/inbound.js";
-import { placeholderReplyForLocale } from "../../src/application/placeholder-replies.js";
+import { defaultDemoReplyForLocale } from "../../src/adapters/llm/fake-llm.js";
 import type { LoggerPort } from "../../src/domain/ports/logger-port.js";
 import type { PersistencePort } from "../../src/domain/ports/persistence-port.js";
 
@@ -25,6 +25,16 @@ const suite = JSON.parse(readFileSync(fileURLToPath(new URL("./cases.json", impo
   cases: VoiceCase[];
 };
 
+function stampOccurredAt(voiceCase: VoiceCase): Record<string, unknown> {
+  if (voiceCase.id === "stale-occurred-at") {
+    return voiceCase.request;
+  }
+  if (typeof voiceCase.request.occurredAt === "string") {
+    return { ...voiceCase.request, occurredAt: new Date().toISOString() };
+  }
+  return voiceCase.request;
+}
+
 describe(suite.suiteName, () => {
   it("should_not_require_live_telephony", () => {
     expect(suite.requiresLiveTelephony).toBe(false);
@@ -44,7 +54,7 @@ describe(suite.suiteName, () => {
         method: "POST",
         url: "/adapters/voice/inbound",
         headers: voiceCase.authenticated ? { [VOICE_INBOUND_SECRET_HEADER]: "eval-secret" } : {},
-        payload: voiceCase.request,
+        payload: stampOccurredAt(voiceCase),
       });
 
       expect(response.statusCode).toBe(voiceCase.expect.httpStatus);
@@ -52,7 +62,7 @@ describe(suite.suiteName, () => {
         expect(response.json().error.code).toBe(voiceCase.expect.errorCode);
       } else {
         expect(response.json()).toMatchObject({
-          message: placeholderReplyForLocale("es"),
+          message: defaultDemoReplyForLocale("es"),
           locale: voiceCase.expect.body?.locale,
           status: voiceCase.expect.body?.status,
         });
