@@ -18,7 +18,7 @@ src/
     http/           # health + inbound route wiring
     voice/          # Vapi/simulator translation only
     llm/            # fake + optional HTTP completions adapter
-    tools/          # native demo.normalize_text
+    tools/          # product registry (demo.normalize_text); test-only demo.echo_token off the product catalog
     persistence/    # PostgreSQL driver
     logging/        # structured JSON logger
   composition/      # process wiring
@@ -32,7 +32,7 @@ Dependencies point inward. Replacing a voice, LLM, store, or observability vendo
 | --- | --- | --- |
 | LLM | `complete`, `stream`, structured output | Fake by default; optional HTTP adapter |
 | Speech | `transcribe`, `synthesize` | Interface only — unused on the inbound text path |
-| Tools | authorize + execute | Native `demo.normalize_text` (`read`) |
+| Tools | authorize + execute | In-process registry; product `demo.normalize_text` (`read`, `native`); MCP source reserved and denied |
 | Retrieval | query → source-located hits | Interface only |
 | Observability | emit span/trace | Logging adapter by default (no in-heap span list); `MemoryObservability` is test-only |
 | Persistence | `ping` (later repositories) | PostgreSQL adapter |
@@ -59,7 +59,7 @@ This increment executes no product side effects. Later tools MUST declare a risk
 ## Dual MCP
 
 - **Development MCP** (Cursor / coding agents) stays on the developer machine. It is not part of the product runtime.
-- **Runtime MCP** is a later optional adapter behind the tool port, with allowlists, timeouts, and audit. Do not register IDE MCP servers as product tools.
+- **Runtime MCP** is a later optional adapter behind the same tool port, with allowlists, timeouts, and audit. Catalog `source` may be `mcp`; this increment does not start a client or execute MCP tools. Do not register IDE MCP servers as product tools.
 
 ## What this increment does not ship
 

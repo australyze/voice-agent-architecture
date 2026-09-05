@@ -130,4 +130,6 @@ src/adapters        HTTP, voice inbound, LLM, tools, PostgreSQL, logging
 src/composition     process entry
 ```
 
-`lidr-specboot/docs/` was not modified for this increment. See [docs/architecture.md](./docs/architecture.md).
+Tools use an in-process registry. Product composition registers only `demo.normalize_text` (allowlisted). `demo.echo_token` is test-only. String tool I/O is capped at 2048 characters. High-risk risk classes are denied. MCP is not required to start. See [docs/agents/runtime-demo.md](./docs/agents/runtime-demo.md).
+
+`lidr-specboot/docs/` was not modified for this increment. Canonical `/tools/{toolName}/invoke` remains unimplemented.

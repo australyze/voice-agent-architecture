@@ -9,7 +9,12 @@ import {
 import type { LlmMessage, LlmPort } from "../domain/ports/llm-port.js";
 import type { ObservabilityPort } from "../domain/ports/observability-port.js";
 import type { ToolPort } from "../domain/ports/tool-port.js";
-import { DEFAULT_FAKE_MODEL_ID, DEMO_NORMALIZE_TEXT, DEMO_TOOL_TIMEOUT_MS } from "../domain/demo-tool.js";
+import {
+  DEFAULT_FAKE_MODEL_ID,
+  DEMO_TOOL_TIMEOUT_MS,
+  MAX_TOOL_STRING_CHARS,
+  RUNTIME_DEMO_ALLOWLIST,
+} from "../domain/demo-tool.js";
 import type { PromptVersion } from "./load-prompt.js";
 
 const MAX_TOOL_HOPS = 1;
@@ -48,6 +53,7 @@ export type HandleAgentTurnDependencies = {
   prompt: PromptVersion;
   modelId?: string;
   llmTimeoutMs: number;
+  allowedTools?: readonly string[];
 };
 
 export function packAgentContext(prompt: PromptVersion, userText: string, toolResult?: string): string {
@@ -184,16 +190,18 @@ export async function handleAgentTurn(
       return agentFailure(AGENT_ERROR_CODES.TOOL_DENIED, states);
     }
 
-    if (decision.toolName !== DEMO_NORMALIZE_TEXT) {
+    const allowedTools = dependencies.allowedTools ?? RUNTIME_DEMO_ALLOWLIST;
+    if (decision.toolName === undefined || !allowedTools.includes(decision.toolName)) {
       return agentFailure(AGENT_ERROR_CODES.TOOL_DENIED, states);
     }
 
     hops += 1;
     states.push({ state: "awaiting_tool", actor: "runtime" });
     const toolStarted = Date.now();
+    const toolArguments = decision.arguments ?? {};
     const toolResult = await dependencies.tools.authorizeAndExecute({
       toolName: decision.toolName,
-      arguments: decision.arguments ?? {},
+      arguments: toolArguments,
       timeoutMs: DEMO_TOOL_TIMEOUT_MS,
     });
 
@@ -206,7 +214,9 @@ export async function handleAgentTurn(
       modelId,
       latencyMs: Date.now() - toolStarted,
       toolName: decision.toolName,
-      argumentsRedacted: { text: "[redacted]" },
+      source: toolResult.source ?? "native",
+      validationOk: toolResult.ok || toolResult.code !== AGENT_ERROR_CODES.TOOL_INVALID_ARGS,
+      argumentsRedacted: redactToolArguments(toolArguments),
       resultBounded: toolResult.ok ? { ok: true } : { code: toolResult.code },
       ...(toolResult.ok ? {} : { errorCode: toolResult.code }),
     });
@@ -218,11 +228,25 @@ export async function handleAgentTurn(
       if (toolResult.code === AGENT_ERROR_CODES.TOOL_DENIED) {
         return agentFailure(AGENT_ERROR_CODES.TOOL_DENIED, states);
       }
+      if (toolResult.code === AGENT_ERROR_CODES.TOOL_INVALID_ARGS) {
+        return agentFailure(AGENT_ERROR_CODES.TOOL_INVALID_ARGS, states);
+      }
       return agentFailure(AGENT_ERROR_CODES.TOOL_FAILED, states);
     }
 
     const toolJson = JSON.stringify(toolResult.payload);
+    if (toolJson.length > MAX_TOOL_STRING_CHARS) {
+      return agentFailure(AGENT_ERROR_CODES.TOOL_FAILED, states);
+    }
     packed = packAgentContext(dependencies.prompt, input.userText, toolJson);
     messages = buildMessages(dependencies.prompt, input.userText, toolJson);
   }
+}
+
+function redactToolArguments(args: Record<string, unknown>): Record<string, string> {
+  const redacted: Record<string, string> = {};
+  for (const key of Object.keys(args)) {
+    redacted[key] = "[redacted]";
+  }
+  return redacted;
 }

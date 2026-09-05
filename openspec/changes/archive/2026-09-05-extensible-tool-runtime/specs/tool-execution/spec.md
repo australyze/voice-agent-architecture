@@ -1,10 +1,4 @@
-# tool-execution Specification
-
-## Purpose
-
-Defines allowlisted native tool execution for the first demo agent: one side-effect-free tool, strict JSON Schema, runtime authorization, and structured errors so the model never executes side effects itself.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Catalog contains one native read-only tool
 
@@ -110,6 +104,8 @@ This change MUST NOT attach development MCP or runtime MCP servers to the produc
 
 - **WHEN** the registry resolves a tool whose `source` is `mcp` (including a test-injected entry)
 - **THEN** the runtime returns `tool_denied` and MUST NOT open a network connection or MCP session
+
+## ADDED Requirements
 
 ### Requirement: Tools are registered and resolved through one contract
 

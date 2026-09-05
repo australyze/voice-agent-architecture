@@ -1,6 +1,7 @@
 export const AGENT_ERROR_CODES = {
   INVALID_OUTPUT: "invalid_output",
   TOOL_DENIED: "tool_denied",
+  TOOL_INVALID_ARGS: "tool_invalid_args",
   TOOL_FAILED: "tool_failed",
   TOOL_TIMEOUT: "tool_timeout",
   LLM_TIMEOUT: "llm_timeout",
@@ -12,6 +13,7 @@ export type AgentErrorCode = (typeof AGENT_ERROR_CODES)[keyof typeof AGENT_ERROR
 export const SAFE_AGENT_MESSAGES: Record<AgentErrorCode, string> = {
   invalid_output: "The model returned an invalid structured result",
   tool_denied: "The requested tool is not allowed",
+  tool_invalid_args: "Tool arguments are invalid",
   tool_failed: "The tool failed",
   tool_timeout: "The tool timed out",
   llm_timeout: "The model timed out",
