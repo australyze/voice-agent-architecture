@@ -1,0 +1,25 @@
+---
+description: Directs all AI agents to the AI Engineering methodology in docs/base-standards.md
+alwaysApply: true
+---
+
+# Use Base Development Rules
+
+All AI agents in this methodology repository must follow `docs/base-standards.md` as the single source of truth.
+
+Before planning or implementing, read:
+
+- `docs/base-standards.md`
+- Linked domain docs as relevant: `backend-standards.md`, `frontend-standards.md`, `documentation-standards.md`, `data-model.md`, `api-spec.yml`, `development_guide.md`, `openspec-tasks-mandatory-steps.md`
+- The current OpenSpec change, if present
+- The phase agent under `ai-specs/agents/`
+- Matching skills under `ai-specs/skills/`
+
+## Directives
+
+- Hierarchy: docs → OpenSpec change → agent → skills → code
+- Follow those linked docs. They are part of the rule set
+- Vapi and other channels are adapters, never the application core
+- Skills compose with OpenSpec; they do not replace `/ff`, `/apply`, or `/verify`
+- English only for technical artifacts
+- Frontend rules apply only when an operator/HITL UI exists

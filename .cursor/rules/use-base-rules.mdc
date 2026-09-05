@@ -1,0 +1,27 @@
+---
+description: Load the AI Engineering methodology from lidr-specboot and OpenSpec at repo root
+alwaysApply: true
+---
+
+# Methodology load path
+
+This workspace is an implementing repo. OpenSpec is at the repository root. Coding-agent methodology is in `lidr-specboot/`.
+
+Before planning or implementing, read and follow:
+
+- `lidr-specboot/docs/base-standards.md` — single source of truth
+- Linked domain docs as relevant: `backend-standards.md`, `frontend-standards.md`, `documentation-standards.md`, `data-model.md`, `api-spec.yml`, `development_guide.md`, `openspec-tasks-mandatory-steps.md`
+- `openspec/config.yaml` and the current OpenSpec change
+- The phase agent under `lidr-specboot/ai-specs/agents/`
+- Matching skills under `lidr-specboot/ai-specs/skills/` (Cursor `/` picker reads `.cursor/skills/<name>/SKILL.md`)
+- OpenSpec SDD commands in Cursor are `/opsx-propose`, `/opsx-apply`, `/opsx-archive` (hyphens), from `.cursor/commands/`
+
+When an agent or skill says `docs/` or `ai-specs/`, resolve as `lidr-specboot/docs/` and `lidr-specboot/ai-specs/`.
+
+## Directives
+
+- Hierarchy: docs → OpenSpec change → agent → skills → code
+- Follow those linked docs. They are part of the rule set, not optional extras
+- Vapi and other channels are adapters, never the application core
+- Skills compose with OpenSpec; they do not replace `/ff`, `/apply`, or `/verify`
+- English only for technical artifacts

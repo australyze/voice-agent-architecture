@@ -1,0 +1,946 @@
+openapi: 3.0.3
+info:
+  title: Canonical AI Agent System API
+  description: |
+    Architectural HTTP contracts for product capabilities: sessions, tools,
+    human-in-the-loop, knowledge, evaluation, and provider-agnostic ingress.
+
+    These paths describe what the application exposes. They are not the API of
+    Vapi, LangGraph, LangChain, Langfuse, or any other vendor. Adapter-specific
+    webhook verification, headers, and payloads belong in project adapter docs.
+
+    Implementing projects may rename prefixes or split services but should keep
+    the same capability boundaries and error envelope.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://api.example.com
+    description: Production placeholder
+
+tags:
+  - name: Sessions
+    description: Conversation or call session lifecycle
+  - name: Turns
+    description: Messages and transcripts on a session
+  - name: Tools
+    description: Authorized tool execution
+  - name: Approvals
+    description: Human-in-the-loop decisions
+  - name: Knowledge
+    description: Document ingestion and retrieval
+  - name: Evaluations
+    description: Evaluation runs and scores
+  - name: Ingress
+    description: Interaction-layer webhooks mapped into session commands
+
+paths:
+  /sessions:
+    post:
+      tags: [Sessions]
+      summary: Create a session
+      operationId: createSession
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+    get:
+      tags: [Sessions]
+      summary: List sessions
+      operationId: listSessions
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/BusinessStatus"
+        - in: query
+          name: channel
+          schema:
+            $ref: "#/components/schemas/Channel"
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionListResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /sessions/{sessionId}:
+    get:
+      tags: [Sessions]
+      summary: Get session
+      operationId: getSession
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Sessions]
+      summary: Apply a session command
+      description: |
+        Deterministic commands such as terminate, transfer, or attach wrap-up.
+        Command names are product-defined; this contract only requires a typed
+        command plus optional payload.
+      operationId: applySessionCommand
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionCommandRequest"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /sessions/{sessionId}/turns:
+    get:
+      tags: [Turns]
+      summary: List turns
+      operationId: listTurns
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Ordered turns
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConversationTurn"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Turns]
+      summary: Append a user or system turn (non-voice channels)
+      description: |
+        Chat and batch channels may append text turns here. Voice media typically
+        arrives via /ingress/interaction and is mapped to turns internally.
+      operationId: appendTurn
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendTurnRequest"
+      responses:
+        "201":
+          description: Turn recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationTurn"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /tools/{toolName}/invoke:
+    post:
+      tags: [Tools]
+      summary: Invoke a tool through the runtime
+      description: |
+        Product or operator callers may invoke tools only if policy allows.
+        Agents in-process should use the same validation path, not a bypass.
+        MCP-backed tools still appear here by name after allowlist checks.
+      operationId: invokeTool
+      parameters:
+        - in: path
+          name: toolName
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvokeToolRequest"
+      responses:
+        "200":
+          description: Tool finished
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolCall"
+        "202":
+          description: Awaiting human approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolCall"
+        "400":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /approvals:
+    get:
+      tags: [Approvals]
+      summary: List pending or historical approvals
+      operationId: listApprovals
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, approved, rejected, expired]
+        - in: query
+          name: sessionId
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Approvals
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Approval"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /approvals/{approvalId}/decision:
+    post:
+      tags: [Approvals]
+      summary: Approve or reject a proposed tool call
+      operationId: decideApproval
+      parameters:
+        - in: path
+          name: approvalId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDecisionRequest"
+      responses:
+        "200":
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /knowledge/documents:
+    post:
+      tags: [Knowledge]
+      summary: Register a document for ingestion
+      operationId: registerDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDocumentRequest"
+      responses:
+        "202":
+          description: Accepted for ingestion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "400":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /knowledge/query:
+    post:
+      tags: [Knowledge]
+      summary: Retrieve chunks for a query
+      description: Retrieval only. Does not generate an LLM answer.
+      operationId: queryKnowledge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeQueryRequest"
+      responses:
+        "200":
+          description: Hits with scores and source locators
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeQueryResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /evaluations/runs:
+    post:
+      tags: [Evaluations]
+      summary: Start an evaluation run
+      operationId: startEvaluationRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartEvaluationRequest"
+      responses:
+        "202":
+          description: Run accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluationRun"
+        "400":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /evaluations/runs/{runId}:
+    get:
+      tags: [Evaluations]
+      summary: Get evaluation run and scores
+      operationId: getEvaluationRun
+      parameters:
+        - in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluationRun"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+  /ingress/interaction:
+    post:
+      tags: [Ingress]
+      summary: Interaction-layer webhook ingress
+      description: |
+        Generic ingress for voice, chat, or telephony adapters. The application
+        authenticates the request, maps provider events to session commands, and
+        must not expose raw vendor payloads as its public resource model.
+
+        Verification secrets, event names, and body shapes are adapter-specific
+        and are not defined here.
+      operationId: interactionIngress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InteractionIngressRequest"
+      responses:
+        "202":
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngressAccepted"
+        "401":
+          $ref: "#/components/responses/Error"
+        "400":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+
+components:
+  parameters:
+    SessionId:
+      in: path
+      name: sessionId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: false
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: Error envelope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    Channel:
+      type: string
+      enum: [voice, chat, batch]
+
+    BusinessStatus:
+      type: string
+      description: Product workflow state. Extend in implementing projects.
+      enum:
+        - idle
+        - active
+        - awaiting_tool
+        - awaiting_human
+        - transferring
+        - completed
+        - failed
+
+    MediaStatus:
+      type: string
+      enum: [idle, connecting, active, ended]
+
+    CreateSessionRequest:
+      type: object
+      required: [agentVersionId, channel]
+      properties:
+        agentVersionId:
+          type: string
+          format: uuid
+        channel:
+          $ref: "#/components/schemas/Channel"
+        externalChannelId:
+          type: string
+          nullable: true
+          description: Opaque id from the interaction adapter
+        customerRef:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+
+    Session:
+      type: object
+      required:
+        - id
+        - agentVersionId
+        - channel
+        - businessStatus
+        - startedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentVersionId:
+          type: string
+          format: uuid
+        channel:
+          $ref: "#/components/schemas/Channel"
+        externalChannelId:
+          type: string
+          nullable: true
+        businessStatus:
+          $ref: "#/components/schemas/BusinessStatus"
+        mediaStatus:
+          $ref: "#/components/schemas/MediaStatus"
+        customerRef:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endReason:
+          type: string
+          nullable: true
+          enum: [completed, transferred, failed, abandoned, error]
+
+    SessionListResponse:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Session"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    SessionCommandRequest:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string
+          enum: [terminate, transfer, resume, attach_wrapup]
+        payload:
+          type: object
+          additionalProperties: true
+
+    AppendTurnRequest:
+      type: object
+      required: [role, text]
+      properties:
+        role:
+          type: string
+          enum: [user, system]
+        text:
+          type: string
+
+    ConversationTurn:
+      type: object
+      required: [id, sessionId, index, role, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        index:
+          type: integer
+          minimum: 0
+        role:
+          type: string
+          enum: [user, assistant, system, tool]
+        text:
+          type: string
+          nullable: true
+        promptVersionId:
+          type: string
+          nullable: true
+        modelId:
+          type: string
+          nullable: true
+        tokenInput:
+          type: integer
+          nullable: true
+        tokenOutput:
+          type: integer
+          nullable: true
+        latencyMs:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    InvokeToolRequest:
+      type: object
+      required: [sessionId, arguments]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        turnId:
+          type: string
+          format: uuid
+          nullable: true
+        arguments:
+          type: object
+          additionalProperties: true
+        idempotencyKey:
+          type: string
+          nullable: true
+
+    ToolCall:
+      type: object
+      required: [id, sessionId, toolName, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        turnId:
+          type: string
+          format: uuid
+          nullable: true
+        toolName:
+          type: string
+        arguments:
+          type: object
+          additionalProperties: true
+        result:
+          type: object
+          description: Bounded JSON tool result
+          nullable: true
+          additionalProperties: true
+        status:
+          type: string
+          enum:
+            - proposed
+            - awaiting_approval
+            - running
+            - succeeded
+            - failed
+            - denied
+            - timed_out
+        errorCode:
+          type: string
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        attempt:
+          type: integer
+          minimum: 1
+        latencyMs:
+          type: integer
+          nullable: true
+
+    Approval:
+      type: object
+      required: [id, sessionId, toolCallId, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        toolCallId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, approved, rejected, expired]
+        proposedAction:
+          type: object
+          additionalProperties: true
+        actorId:
+          type: string
+          nullable: true
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+
+    ApprovalDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approved, rejected]
+        reason:
+          type: string
+          nullable: true
+        actorId:
+          type: string
+
+    RegisterDocumentRequest:
+      type: object
+      required: [corpusId, sourceUri]
+      properties:
+        corpusId:
+          type: string
+        sourceUri:
+          type: string
+          format: uri
+        title:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        sensitivity:
+          type: string
+          enum: [public, internal, restricted]
+        metadata:
+          type: object
+          additionalProperties: true
+
+    Document:
+      type: object
+      required: [id, corpusId, sourceUri, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        corpusId:
+          type: string
+        sourceUri:
+          type: string
+        status:
+          type: string
+          enum: [accepted, active, stale, deleted]
+        indexedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    KnowledgeQueryRequest:
+      type: object
+      required: [corpusId, query]
+      properties:
+        corpusId:
+          type: string
+        query:
+          type: string
+        k:
+          type: integer
+          minimum: 1
+          default: 8
+        metadataFilters:
+          type: object
+          additionalProperties: true
+        hybrid:
+          type: boolean
+          default: false
+
+    KnowledgeHit:
+      type: object
+      required: [chunkId, score, rank]
+      properties:
+        chunkId:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+        locator:
+          type: string
+        text:
+          type: string
+        score:
+          type: number
+        rank:
+          type: integer
+
+    KnowledgeQueryResponse:
+      type: object
+      required: [hits]
+      properties:
+        corpusVersion:
+          type: string
+          nullable: true
+        hits:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeHit"
+
+    StartEvaluationRequest:
+      type: object
+      required: [suiteName, datasetVersion]
+      properties:
+        suiteName:
+          type: string
+        datasetVersion:
+          type: string
+        agentVersionId:
+          type: string
+          format: uuid
+          nullable: true
+        promptVersionId:
+          type: string
+          nullable: true
+        gate:
+          type: string
+          enum: [ci, openspec, nightly, manual]
+          default: manual
+
+    EvaluationScore:
+      type: object
+      required: [caseId, metric, value, pass]
+      properties:
+        caseId:
+          type: string
+        metric:
+          type: string
+        value:
+          type: number
+        pass:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+
+    EvaluationRun:
+      type: object
+      required: [id, suiteName, datasetVersion, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        suiteName:
+          type: string
+        datasetVersion:
+          type: string
+        status:
+          type: string
+          enum: [running, passed, failed, error]
+        gate:
+          type: string
+          enum: [ci, openspec, nightly, manual]
+        scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvaluationScore"
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    InteractionIngressRequest:
+      type: object
+      required: [adapter, eventType, occurredAt]
+      properties:
+        adapter:
+          type: string
+          description: Interaction adapter name (project-defined), not a vendor schema
+        eventType:
+          type: string
+          description: Normalized event (e.g. session_started, transcript, hangup)
+        occurredAt:
+          type: string
+          format: date-time
+        sessionId:
+          type: string
+          format: uuid
+          nullable: true
+        externalChannelId:
+          type: string
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: true
+          description: Adapter-mapped fields only; do not require vendor-native keys
+
+    IngressAccepted:
+      type: object
+      required: [accepted]
+      properties:
+        accepted:
+          type: boolean
+        sessionId:
+          type: string
+          format: uuid
+          nullable: true
+
+    PaginationMetadata:
+      type: object
+      required: [total, page, limit, totalPages]
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [message, code]
+          properties:
+            message:
+              type: string
+            code:
+              type: string
+            details:
+              nullable: true

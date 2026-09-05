@@ -1,0 +1,1 @@
+../../ai-specs/agents/product-analyst.md

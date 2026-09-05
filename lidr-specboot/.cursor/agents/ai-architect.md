@@ -1,0 +1,1 @@
+../../ai-specs/agents/ai-architect.md
