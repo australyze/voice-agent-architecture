@@ -11,6 +11,9 @@ const FORBIDDEN_DEPENDENCIES = [
   "langfuse",
   "openai",
   "@anthropic-ai/sdk",
+  "@modelcontextprotocol/sdk",
+  "@modelcontextprotocol/server",
+  "mcp",
 ];
 
 describe("dependency allowlist", () => {

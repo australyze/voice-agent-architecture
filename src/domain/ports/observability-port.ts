@@ -9,6 +9,7 @@ export type TraceSpan = {
   modelId?: string;
   latencyMs?: number;
   toolName?: string;
+  source?: string;
   argumentsRedacted?: unknown;
   resultBounded?: unknown;
   validationOk?: boolean;

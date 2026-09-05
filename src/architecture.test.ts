@@ -19,6 +19,8 @@ const FORBIDDEN_CORE_IMPORTS = [
   /@prisma\//i,
   /drizzle-orm/i,
   /typeorm/i,
+  /@modelcontextprotocol/i,
+  /\bfrom\s+["'][^"']*mcp[^"']*["']/i,
 ];
 
 function walk(directory: string): string[] {

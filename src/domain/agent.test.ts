@@ -9,6 +9,7 @@ describe("agent error contract", () => {
   it("should_include_required_agent_error_codes", () => {
     expect(AGENT_ERROR_CODES.INVALID_OUTPUT).toBe("invalid_output");
     expect(AGENT_ERROR_CODES.TOOL_DENIED).toBe("tool_denied");
+    expect(AGENT_ERROR_CODES.TOOL_INVALID_ARGS).toBe("tool_invalid_args");
     expect(AGENT_ERROR_CODES.TOOL_FAILED).toBe("tool_failed");
     expect(AGENT_ERROR_CODES.TOOL_TIMEOUT).toBe("tool_timeout");
     expect(AGENT_ERROR_CODES.LLM_TIMEOUT).toBe("llm_timeout");

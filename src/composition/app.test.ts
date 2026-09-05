@@ -50,4 +50,20 @@ describe("composition root", () => {
     expect(live.statusCode).toBe(200);
     await server.close();
   });
+
+  it("should_start_without_mcp_settings", async () => {
+    const config = loadConfig({
+      ...BASE_ENV,
+      PORT: "3000",
+    });
+    expect(config).not.toHaveProperty("mcp");
+    const server = await createRuntime(config, {
+      persistence: {
+        async ping() {},
+      },
+    });
+    const live = await server.inject({ method: "GET", url: "/health/live" });
+    expect(live.statusCode).toBe(200);
+    await server.close();
+  });
 });

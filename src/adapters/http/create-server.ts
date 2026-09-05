@@ -14,6 +14,7 @@ import { checkLiveness } from "../../application/check-liveness.js";
 import { checkReadiness } from "../../application/check-readiness.js";
 import { checkVoiceIntegration } from "../../application/check-voice-integration.js";
 import { handleAgentTurn } from "../../application/handle-agent-turn.js";
+import { RUNTIME_DEMO_ALLOWLIST } from "../../domain/demo-tool.js";
 import { handleVoiceTurn } from "../../application/handle-voice-turn.js";
 import { loadRuntimeDemoPrompt } from "../../application/load-prompt.js";
 import { mapErrorToEnvelope } from "../../application/map-error.js";
@@ -27,6 +28,7 @@ import { VOICE_ERROR_CODES } from "../../domain/voice.js";
 import { defaultFakeLlm } from "../llm/fake-llm.js";
 import { HttpLlm } from "../llm/http-llm.js";
 import { LoggingObservability } from "../observability/logging-observability.js";
+import { createProductToolRegistry } from "../tools/create-default-registry.js";
 import { NativeToolPort } from "../tools/native-tool-port.js";
 import {
   INBOUND_BODY_LIMIT_BYTES,
@@ -85,7 +87,12 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
     modelId: DEFAULT_LLM_MODEL_ID,
   };
   const llm = composeLlm(llmConfig, dependencies.llm);
-  const tools = dependencies.tools ?? new NativeToolPort();
+  const tools =
+    dependencies.tools ??
+    new NativeToolPort({
+      registry: createProductToolRegistry(),
+      allowedTools: RUNTIME_DEMO_ALLOWLIST,
+    });
   const observability = dependencies.observability ?? new LoggingObservability(dependencies.logger);
   const prompt = loadRuntimeDemoPrompt();
   const inboundMaxSkewMs = voice.inboundMaxSkewMs ?? DEFAULT_INBOUND_MAX_SKEW_MS;
@@ -129,6 +136,7 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
             prompt,
             modelId: llmConfig.modelId,
             llmTimeoutMs: llmConfig.timeoutMs,
+            allowedTools: RUNTIME_DEMO_ALLOWLIST,
           },
         ),
     });
