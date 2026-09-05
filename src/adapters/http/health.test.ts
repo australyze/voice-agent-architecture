@@ -31,9 +31,11 @@ describe("health HTTP", () => {
 
     const live = await server.inject({ method: "GET", url: "/health/live" });
     const ready = await server.inject({ method: "GET", url: "/health/ready" });
+    const voice = await server.inject({ method: "GET", url: "/health/voice" });
 
     expect(live.statusCode).toBe(200);
     expect(ready.statusCode).toBe(200);
+    expect(voice.statusCode).toBe(200);
     await server.close();
   });
 

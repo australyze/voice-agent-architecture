@@ -15,7 +15,7 @@ export type RuntimeDependencies = {
 export function createRuntime(config: AppConfig, overrides: RuntimeDependencies = {}): Promise<FastifyInstance> {
   const logger = overrides.logger ?? new JsonLogger();
   const persistence = overrides.persistence ?? new PostgresPersistence(config.databaseUrl);
-  return createServer({ persistence, logger });
+  return createServer({ persistence, logger, voice: config.voice });
 }
 
 export async function startRuntime(

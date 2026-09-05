@@ -2,10 +2,11 @@ openapi: 3.0.3
 info:
   title: AI Agent Runtime Health API
   description: |
-    Operational health probes for the implementing runtime.
-    Product session, tool, and ingress contracts remain in
-    lidr-specboot/docs/api-spec.yml and are not implemented here.
-  version: 0.1.0
+    Operational health probes and the inbound voice adapter surface.
+    Canonical product session and /ingress/interaction contracts remain in
+    lidr-specboot/docs/api-spec.yml. The Vapi-facing URL is
+    POST /adapters/voice/inbound, not /ingress/interaction.
+  version: 0.2.0
 servers:
   - url: http://localhost:3000
     description: Local development
@@ -38,6 +39,52 @@ paths:
           $ref: "#/components/responses/Error"
         "500":
           $ref: "#/components/responses/Error"
+  /health/voice:
+    get:
+      summary: Voice integration diagnostic
+      operationId: getVoiceIntegration
+      responses:
+        "200":
+          description: Voice integration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceIntegrationResponse"
+        "500":
+          $ref: "#/components/responses/Error"
+  /adapters/voice/inbound:
+    post:
+      summary: Inbound voice adapter (synchronous reply)
+      operationId: postVoiceInbound
+      parameters:
+        - in: header
+          name: x-voice-inbound-secret
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceInboundRequest"
+      responses:
+        "200":
+          description: Mapped runtime placeholder reply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceConsumerReply"
+        "400":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
 components:
   responses:
     Error:
@@ -61,6 +108,53 @@ components:
         status:
           type: string
           enum: [ready]
+    VoiceIntegrationResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [configured, not_configured, error]
+        code:
+          type: string
+    VoiceInboundRequest:
+      type: object
+      additionalProperties: false
+      required: [eventType, occurredAt]
+      properties:
+        eventType:
+          type: string
+          maxLength: 64
+        occurredAt:
+          type: string
+          format: date-time
+        externalChannelId:
+          type: string
+          maxLength: 128
+        interactionId:
+          type: string
+          maxLength: 128
+        requestId:
+          type: string
+          maxLength: 128
+        inputText:
+          type: string
+          maxLength: 4096
+        sessionId:
+          type: string
+          format: uuid
+          maxLength: 36
+    VoiceConsumerReply:
+      type: object
+      required: [message, locale, status]
+      properties:
+        message:
+          type: string
+        locale:
+          type: string
+        status:
+          type: string
+          enum: [ok]
     ErrorResponse:
       type: object
       required: [success, error]

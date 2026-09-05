@@ -15,6 +15,11 @@ describe("secret hygiene", () => {
     expect(example).toContain("NODE_ENV=");
     expect(example).toContain("PORT=");
     expect(example).toContain("DATABASE_URL=postgresql://voice_agent:voice_agent@127.0.0.1:5433");
+    expect(example).toContain("VOICE_INBOUND_SECRET=");
+    expect(example).toContain("VOICE_PROVIDER_API_KEY=");
+    expect(example).toContain("VOICE_PROVIDER_BASE_URL=");
+    expect(example).toContain("VOICE_TIMEOUT_MS=2000");
+    expect(example).toContain("VOICE_DEFAULT_LOCALE=es");
     expect(example).not.toMatch(/sk-[A-Za-z0-9]/);
     expect(example).not.toMatch(/AKIA[0-9A-Z]{16}/);
     expect(example).not.toMatch(/hf_[A-Za-z0-9]{10,}/);
