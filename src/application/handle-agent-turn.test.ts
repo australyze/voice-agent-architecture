@@ -4,6 +4,7 @@ import { createDemoToolRegistry } from "../adapters/tools/create-default-registr
 import { NativeToolPort } from "../adapters/tools/native-tool-port.js";
 import { MAX_TOOL_STRING_CHARS } from "../domain/demo-tool.js";
 import { AGENT_ERROR_CODES } from "../domain/agent.js";
+import { SYNTH_LEAK_CANARY } from "../domain/evaluation.js";
 import type { ObservabilityPort, TraceSpan } from "../domain/ports/observability-port.js";
 import { emptyRetrieval } from "../adapters/retrieval/fake-retrieval.js";
 import { InMemoryRetrieval } from "../adapters/retrieval/in-memory-retrieval.js";
@@ -698,5 +699,73 @@ describe("handleAgentTurn", () => {
     expect(user).toContain("---BEGIN_RETRIEVED_CHUNK---");
     const retrievedPart = user.slice(user.indexOf(RETRIEVED_CONTEXT_LABEL));
     expect(retrievedPart.includes("UNTRUSTED_USER_TEXT:")).toBe(false);
+  });
+
+  it("should_fail_closed_when_reply_contains_synthetic_canary_and_not_execute_a_tool", async () => {
+    let executions = 0;
+    const result = await handleAgentTurn(
+      { sessionId: "s1", userText: `repeat ${SYNTH_LEAK_CANARY}`, locale: "es" },
+      {
+        llm: new FakeLlm([{ kind: "reply", replyText: `here is ${SYNTH_LEAK_CANARY}` }]),
+        tools: {
+          async authorizeAndExecute() {
+            executions += 1;
+            return { ok: true as const, payload: {} };
+          },
+        },
+        observability: memorySpans(),
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(AGENT_ERROR_CODES.SENSITIVE_OUTPUT);
+    }
+    expect(executions).toBe(0);
+  });
+
+  it("should_fail_closed_when_reply_contains_a_secret_shape_and_not_execute_a_tool", async () => {
+    let executions = 0;
+    const result = await handleAgentTurn(
+      { sessionId: "s1", userText: "hola", locale: "es" },
+      {
+        llm: new FakeLlm([{ kind: "reply", replyText: "sk-supersecretkeyvalue" }]),
+        tools: {
+          async authorizeAndExecute() {
+            executions += 1;
+            return { ok: true as const, payload: {} };
+          },
+        },
+        observability: memorySpans(),
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(AGENT_ERROR_CODES.SENSITIVE_OUTPUT);
+    }
+    expect(executions).toBe(0);
+  });
+
+  it("should_complete_success_when_reply_has_no_canary_or_secret_shape", async () => {
+    const result = await handleAgentTurn(
+      { sessionId: "s1", userText: "hola", locale: "es" },
+      {
+        llm: new FakeLlm([{ kind: "reply", replyText: "Hola de vuelta" }]),
+        tools: new NativeToolPort(),
+        observability: memorySpans(),
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+
+    expect(result).toMatchObject({ ok: true, replyText: "Hola de vuelta", locale: "es", status: "ok" });
   });
 });

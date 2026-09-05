@@ -17,3 +17,5 @@
 This suite is retrieval evaluation, not a vector-client unit test and not live-model generation.
 
 Run: `npx vitest run eval/knowledge/knowledge.eval.test.ts`
+
+Also a required member of `npm run test:eval-gate`. See [eval/gate/README.md](../gate/README.md).

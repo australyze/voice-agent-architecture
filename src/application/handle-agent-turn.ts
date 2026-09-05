@@ -16,6 +16,7 @@ import {
   RETRIEVAL_K,
   RETRIEVAL_THRESHOLD,
 } from "../domain/knowledge.js";
+import { containsSensitiveOutput } from "../domain/evaluation.js";
 import { redactSecrets } from "../domain/redact.js";
 import { assembleRetrieval, type AssembledSource } from "./assemble-retrieval.js";
 import {
@@ -208,10 +209,14 @@ export async function handleAgentTurn(
     });
 
     if (decision.type === "reply") {
+      const replyText = decision.replyText ?? "";
+      if (containsSensitiveOutput(replyText)) {
+        return agentFailure(AGENT_ERROR_CODES.SENSITIVE_OUTPUT, states);
+      }
       states.push({ state: "completed", actor: "runtime" });
       return {
         ok: true,
-        replyText: decision.replyText ?? "",
+        replyText,
         locale: input.locale,
         status: "ok",
         sources,

@@ -15,6 +15,7 @@ describe("agent error contract", () => {
     expect(AGENT_ERROR_CODES.LLM_TIMEOUT).toBe("llm_timeout");
     expect(AGENT_ERROR_CODES.LLM_PROVIDER).toBe("llm_provider");
     expect(AGENT_ERROR_CODES.RETRIEVAL_FAILED).toBe("retrieval_failed");
+    expect(AGENT_ERROR_CODES.SENSITIVE_OUTPUT).toBe("sensitive_output");
 
     for (const code of Object.values(AGENT_ERROR_CODES)) {
       expect(isAgentErrorCode(code)).toBe(true);

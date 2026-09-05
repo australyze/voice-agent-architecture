@@ -11,6 +11,7 @@
     "start": "tsx src/composition/main.ts",
     "dev": "tsx src/composition/main.ts",
     "test": "vitest run",
+    "test:eval-gate": "tsx src/composition/run-eval-gate.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

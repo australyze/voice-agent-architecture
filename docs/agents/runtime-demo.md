@@ -8,7 +8,7 @@ Single-turn demonstration agent owned by the application runtime. The voice adap
 2. Retrieve against the current user text (runtime step, not a tool). Pack above-threshold hits as fenced `UNTRUSTED_RETRIEVED_CONTEXT:` (2048-character assemble cap). Embed/retrieve throws become `retrieval_failed`.
 3. Call the LLM port with a closed structured decision (`reply` | `tool`).
 4. Authorize the name against the `runtime-demo` allowlist (policy list, not a hardcoded hop-loop branch), then execute through the tool registry once.
-5. Return typed success (`replyText`, locale, `sources`) or a normalized agent error.
+5. Return typed success (`replyText`, locale, `sources`) or a normalized agent error. A reply that contains `SYNTH-LEAK-CANARY` or a secret-shaped string is `sensitive_output` and does not execute a tool.
 
 User text, retrieved chunks, and tool results are packed as `UNTRUSTED_*` blocks and sent on untrusted message roles. They are not system policy. Request-scoped states: `receiving` → `retrieving` → `reasoning` → `awaiting_tool` (runtime) → `completed` | `failed`. There is no durable conversation memory. See [knowledge.md](../knowledge.md).
 
@@ -93,9 +93,12 @@ Tool spans include `source`, argument validation outcome, and redacted args. The
 
 ```bash
 npm test
+npm run test:eval-gate
 npx vitest run eval/runtime-demo/runtime-demo.eval.test.ts
 ```
 
-Suite `runtime-first-agent`, dataset `2026-09-05.4`, prompt `runtime-demo@2`. Assertions are codes, tool names, packing, and source counts, not live prose.
+Suite `runtime-first-agent`, dataset `2026-09-05.5`, prompt `runtime-demo@2`. Assertions are codes, tool names, packing, source counts, and `sensitive_output` for the synthetic leak case — not live prose.
 
 Retrieval suite: `npx vitest run eval/knowledge/knowledge.eval.test.ts` (`rag-foundation-retrieval`, dataset `2026-09-05.1`).
+
+Quality gate: [evaluation-gate.md](../evaluation-gate.md).
