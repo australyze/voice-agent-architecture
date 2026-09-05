@@ -3,8 +3,8 @@
   "requiresLiveTelephony": false,
   "cases": [
     {
-      "id": "supported-turn-placeholder",
-      "name": "Supported transcript yields placeholder",
+      "id": "supported-turn-agent-reply",
+      "name": "Supported transcript yields agent reply",
       "configured": true,
       "authenticated": true,
       "request": {
@@ -66,6 +66,21 @@
       "expect": {
         "httpStatus": 401,
         "errorCode": "UNAUTHORIZED"
+      }
+    },
+    {
+      "id": "stale-occurred-at",
+      "name": "Stale occurredAt is rejected",
+      "configured": true,
+      "authenticated": true,
+      "request": {
+        "eventType": "transcript",
+        "occurredAt": "2020-01-01T00:00:00.000Z",
+        "inputText": "hola"
+      },
+      "expect": {
+        "httpStatus": 400,
+        "errorCode": "VOICE_STALE"
       }
     }
   ]

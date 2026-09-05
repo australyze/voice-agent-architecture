@@ -13,6 +13,42 @@ export const MAX_EVENT_TYPE_CHARS = 64;
 export const INBOUND_BODY_LIMIT_BYTES = 16 * 1024;
 const SESSION_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+export function inboundSecretHash(secret: string): string {
+  return createHash("sha256").update(secret).digest("hex");
+}
+
+export function assertInboundFreshness(
+  occurredAt: Date,
+  maxSkewMs: number,
+  now: () => number = Date.now,
+): void {
+  if (Math.abs(now() - occurredAt.getTime()) > maxSkewMs) {
+    throw new VoiceBoundaryError(VOICE_ERROR_CODES.STALE, "The inbound event is stale");
+  }
+}
+
+export class InboundRateLimiter {
+  private readonly hits = new Map<string, number[]>();
+
+  constructor(
+    private readonly max: number,
+    private readonly windowMs: number,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  allow(key: string): boolean {
+    const t = this.now();
+    const kept = (this.hits.get(key) ?? []).filter((ts) => t - ts < this.windowMs);
+    if (kept.length >= this.max) {
+      this.hits.set(key, kept);
+      return false;
+    }
+    kept.push(t);
+    this.hits.set(key, kept);
+    return true;
+  }
+}
+
 const inboundSchema = z
   .object({
     eventType: z.string().min(1).max(MAX_EVENT_TYPE_CHARS),

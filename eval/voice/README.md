@@ -10,7 +10,7 @@ A case passes when the HTTP status and error code (or success shape) match `case
 
 | Case | Pass |
 | --- | --- |
-| `supported-turn-placeholder` | `200` and `status=ok` with configured locale `es` |
+| `supported-turn-agent-reply` | `200` and `status=ok` with configured locale `es` and agent reply text |
 | `invalid-payload` | `400` / `VOICE_PAYLOAD_INVALID` |
 | `unsupported-event` | `400` / `VOICE_EVENT_UNSUPPORTED` |
 | `unauthenticated` | `401` / `UNAUTHORIZED` |

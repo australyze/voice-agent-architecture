@@ -1,7 +1,13 @@
+export type LlmMessage = {
+  role: "system" | "user" | "tool";
+  content: string;
+};
+
 export type LlmCompleteRequest = {
   promptVersion: string;
   modelId: string;
   input: string;
+  messages?: LlmMessage[];
 };
 
 export type LlmCompleteResult = {
@@ -13,6 +19,7 @@ export type LlmStructuredRequest<TSchema> = {
   modelId: string;
   input: string;
   schema: TSchema;
+  messages?: LlmMessage[];
 };
 
 export type LlmPort = {

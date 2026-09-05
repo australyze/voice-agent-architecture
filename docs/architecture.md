@@ -1,6 +1,6 @@
 # AI Agent Runtime architecture
 
-This note binds later increments. Methodology rules stay in `lidr-specboot/docs/`. This file is the implementing-repo view of the runtime plus the inbound voice channel.
+This note binds later increments. Methodology rules stay in `lidr-specboot/docs/`. This file is the implementing-repo view of the runtime, the inbound voice channel, and the first demo agent.
 
 ## Layering
 
@@ -13,10 +13,12 @@ Domain = Provider Independent
 ```text
 src/
   domain/           # errors, ports, VoiceTurn — no frameworks, drivers, or vendor SDKs
-  application/      # config, health, handleVoiceTurn, error mapping
+  application/      # config, health, handleVoiceTurn, handleAgentTurn, error mapping
   adapters/
     http/           # health + inbound route wiring
     voice/          # Vapi/simulator translation only
+    llm/            # fake + optional HTTP completions adapter
+    tools/          # native demo.normalize_text
     persistence/    # PostgreSQL driver
     logging/        # structured JSON logger
   composition/      # process wiring
@@ -28,23 +30,23 @@ Dependencies point inward. Replacing a voice, LLM, store, or observability vendo
 
 | Port | Role | Status |
 | --- | --- | --- |
-| LLM | `complete`, `stream`, structured output | Interface only |
+| LLM | `complete`, `stream`, structured output | Fake by default; optional HTTP adapter |
 | Speech | `transcribe`, `synthesize` | Interface only — unused on the inbound text path |
-| Tools | authorize + execute | Interface only; no product tools |
+| Tools | authorize + execute | Native `demo.normalize_text` (`read`) |
 | Retrieval | query → source-located hits | Interface only |
-| Observability | emit span/trace | Port declared; logging is the operational signal |
+| Observability | emit span/trace | Logging adapter by default (no in-heap span list); `MemoryObservability` is test-only |
 | Persistence | `ping` (later repositories) | PostgreSQL adapter |
 | Logger | operation + outcome + optional correlation | JSON adapter |
 
 ## Voice adapter ≠ runtime
 
 ```text
-Vapi / simulator → adapters/voice → VoiceTurn → handleVoiceTurn → VoiceReply → adapter → consumer
+Vapi / simulator → adapters/voice → VoiceTurn → handleVoiceTurn → handleAgentTurn → VoiceReply → adapter → consumer
 ```
 
 - **Vapi** is the interaction adapter (first inbound implementation).
-- **Agent Runtime** owns execution of the turn (deterministic placeholder in this increment).
-- **Domain** stays provider independent.
+- **Agent Runtime** owns the demo agent (`runtime-demo`): prompt, LLM port, tool allowlist, traces.
+- **Domain** stays provider independent. Placeholder success is no longer the voice happy path.
 
 Media / channel identity (`externalChannelId`) is not business state. This increment does not persist `Session` or `ConversationTurn` tables.
 
@@ -61,7 +63,9 @@ This increment executes no product side effects. Later tools MUST declare a risk
 
 ## What this increment does not ship
 
-No product conversational agent, RAG pipeline, LangGraph domain, Langfuse SDK, tool calling, outbound calling, or session/tool/trace tables.
+No multi-agent topology, RAG pipeline, LangGraph domain, Langfuse SDK, runtime MCP, outbound calling, or Session/Conversation/ToolCall tables. Canonical `lidr-specboot/docs/api-spec.yml` `/sessions` and `/tools/{toolName}/invoke` remain unimplemented.
+
+See [agents/runtime-demo.md](./agents/runtime-demo.md).
 
 ## Local network and health
 

@@ -4,6 +4,8 @@ import { VOICE_ERROR_CODES } from "../../domain/voice.js";
 import {
   MAX_CORRELATION_CHARS,
   MAX_INPUT_TEXT_CHARS,
+  InboundRateLimiter,
+  assertInboundFreshness,
   authenticateInbound,
   mapInboundToVoiceTurn,
   mapVoiceReplyToConsumer,
@@ -113,5 +115,23 @@ describe("voice inbound adapter", () => {
       status: "ok",
     });
     expect(JSON.stringify(mapped)).not.toContain("VoiceReply");
+  });
+
+  it("should_reject_stale_occurred_at", () => {
+    try {
+      assertInboundFreshness(new Date("2020-01-01T00:00:00.000Z"), 60_000, () => Date.parse("2026-09-05T18:00:00.000Z"));
+      throw new Error("expected VoiceBoundaryError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(VoiceBoundaryError);
+      expect((error as VoiceBoundaryError).code).toBe(VOICE_ERROR_CODES.STALE);
+      expect((error as VoiceBoundaryError).message).not.toContain("supersecret");
+    }
+  });
+
+  it("should_rate_limit_after_window_quota", () => {
+    const limiter = new InboundRateLimiter(2, 60_000, () => 1_000);
+    expect(limiter.allow("key")).toBe(true);
+    expect(limiter.allow("key")).toBe(true);
+    expect(limiter.allow("key")).toBe(false);
   });
 });

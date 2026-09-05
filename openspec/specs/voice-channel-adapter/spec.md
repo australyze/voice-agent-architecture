@@ -50,7 +50,7 @@ After the runtime returns an internal reply or typed voice error, the adapter MU
 
 #### Scenario: Placeholder reply is mapped outward
 
-- **WHEN** the runtime returns a deterministic placeholder reply
+- **WHEN** the runtime returns a structured agent reply
 - **THEN** the adapter returns a consumer-compatible success response that contains the reply text and does not expose internal type names as the resource model
 
 #### Scenario: Typed failure is mapped safely
@@ -92,4 +92,18 @@ Automated tests MUST prove the path from an external-shaped request through the 
 #### Scenario: Simulator integration without live vendor
 
 - **WHEN** the automated integration test posts a simulated inbound request to the adapter
-- **THEN** the response is a mapped runtime placeholder reply or a typed error, and the test does not call a paid voice provider
+- **THEN** the response is a mapped runtime agent reply or a typed error, and the test does not call a paid voice provider
+
+### Requirement: Inbound turns are fresh and rate limited
+
+After authentication, the inbound adapter MUST reject an `occurredAt` timestamp whose absolute skew from the process clock exceeds the documented maximum. Authenticated turns MUST be rate limited per inbound secret using an in-process window. Stale turns MUST use a stable stale code. Rate-limited turns MUST use a stable rate-limit code. Neither outcome MAY invoke the agent-turn path. Messages MUST NOT include the inbound secret.
+
+#### Scenario: Stale occurredAt is rejected
+
+- **WHEN** an authenticated inbound request has `occurredAt` older than the configured skew
+- **THEN** the adapter returns a typed stale outcome and does not invoke the agent-turn use case
+
+#### Scenario: Excess authenticated turns are rate limited
+
+- **WHEN** authenticated inbound requests for the same configured secret exceed the documented window limit
+- **THEN** the next request is rejected with a typed rate-limit outcome and does not invoke the agent-turn use case

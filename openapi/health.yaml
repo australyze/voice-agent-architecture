@@ -70,7 +70,7 @@ paths:
               $ref: "#/components/schemas/VoiceInboundRequest"
       responses:
         "200":
-          description: Mapped runtime placeholder reply
+          description: Mapped runtime agent reply
           content:
             application/json:
               schema:

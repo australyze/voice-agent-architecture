@@ -20,6 +20,14 @@ describe("loadConfig", () => {
       voice: {
         timeoutMs: 2000,
         defaultLocale: "es",
+        inboundMaxSkewMs: 60_000,
+        inboundRateLimit: 30,
+        inboundRateWindowMs: 60_000,
+      },
+      llm: {
+        mode: "fake",
+        timeoutMs: 1500,
+        modelId: "fake",
       },
     });
   });
@@ -101,6 +109,14 @@ describe("loadConfig", () => {
     expect(config.voice).toEqual({
       timeoutMs: 2000,
       defaultLocale: "es",
+      inboundMaxSkewMs: 60_000,
+      inboundRateLimit: 30,
+      inboundRateWindowMs: 60_000,
+    });
+    expect(config.llm).toEqual({
+      mode: "fake",
+      timeoutMs: 1500,
+      modelId: "fake",
     });
   });
 
@@ -120,6 +136,9 @@ describe("loadConfig", () => {
       providerBaseUrl: "https://api.example.test",
       timeoutMs: 1500,
       defaultLocale: "es",
+      inboundMaxSkewMs: 60_000,
+      inboundRateLimit: 30,
+      inboundRateWindowMs: 60_000,
     });
   });
 
@@ -162,5 +181,64 @@ describe("loadConfig", () => {
       expect(configError.message).not.toContain("supersecret-inbound");
       expect(configError.message).not.toContain("sk-supersecretvoicekey");
     }
+  });
+
+  it("should_use_fake_llm_when_llm_settings_are_omitted", () => {
+    const config = loadConfig(VALID_ENV);
+    expect(config.llm.mode).toBe("fake");
+  });
+
+  it("should_fail_closed_when_present_llm_settings_are_invalid_without_echoing_secrets", () => {
+    try {
+      loadConfig({ ...VALID_ENV, LLM_BASE_URL: "ftp://secret-llm.example" });
+      throw new Error("expected ConfigError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      const configError = error as ConfigError;
+      expect(configError.code).toBe("CONFIG_INVALID");
+      expect(configError.message).toContain("LLM_BASE_URL");
+      expect(configError.message).not.toContain("secret-llm.example");
+    }
+
+    try {
+      loadConfig({
+        ...VALID_ENV,
+        LLM_BASE_URL: "https://llm.example",
+        LLM_API_KEY: "sk-supersecretllm",
+        LLM_TIMEOUT_MS: "not-ms",
+      });
+      throw new Error("expected ConfigError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      const configError = error as ConfigError;
+      expect(configError.code).toBe("CONFIG_INVALID");
+      expect(configError.message).toContain("LLM_TIMEOUT_MS");
+      expect(configError.message).not.toContain("sk-supersecretllm");
+    }
+
+    try {
+      loadConfig({ ...VALID_ENV, LLM_API_KEY: "sk-only-key" });
+      throw new Error("expected ConfigError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      const configError = error as ConfigError;
+      expect(configError.message).not.toContain("sk-only-key");
+    }
+  });
+
+  it("should_load_http_llm_when_url_and_key_are_valid", () => {
+    const config = loadConfig({
+      ...VALID_ENV,
+      LLM_BASE_URL: "https://llm.example",
+      LLM_API_KEY: "placeholder-llm-key",
+      LLM_MODEL_ID: "demo-model",
+    });
+    expect(config.llm).toEqual({
+      mode: "http",
+      baseUrl: "https://llm.example",
+      apiKey: "placeholder-llm-key",
+      timeoutMs: 1500,
+      modelId: "demo-model",
+    });
   });
 });

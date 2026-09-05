@@ -17,6 +17,8 @@ const VOICE_STATUS: Record<string, number> = {
   [VOICE_ERROR_CODES.CONFIG]: 503,
   [VOICE_ERROR_CODES.PROVIDER]: 502,
   [VOICE_ERROR_CODES.RUNTIME]: 500,
+  [VOICE_ERROR_CODES.STALE]: 400,
+  [VOICE_ERROR_CODES.RATE_LIMITED]: 429,
 };
 
 export function statusCodeForErrorCode(code: string): number {
