@@ -1,0 +1,52 @@
+schema: spec-driven
+
+# Methodology lives in lidr-specboot/. Paths are relative to this repository root.
+context: |
+  Tech stack: TypeScript, Node.js, PostgreSQL, pgvector, Docker. Optional: Python, LangGraph, Langfuse, Promptfoo, DeepEval, n8n, runtime MCP. Use-case: Vapi as a voice/telephony adapter.
+  Architecture: Hexagonal / Clean Architecture with provider ports. Vapi is not the application core.
+  We use conventional commits
+  Domain: production AI agent systems (voice, chat, RAG, tools, evaluation)
+  All code, comments, documentation, and technical artifacts must be in English
+
+  This workspace: OpenSpec is at the repository root. Coding-agent methodology is in lidr-specboot/. When an agent or skill says `docs/` or `ai-specs/`, resolve those as `lidr-specboot/docs/` and `lidr-specboot/ai-specs/`.
+
+  Hierarchy: lidr-specboot/docs/base-standards.md → domain docs → OpenSpec change → lidr-specboot/ai-specs/agents → skills → implementation.
+
+  Project specs (single source of truth). All artifact creation and implementation MUST follow lidr-specboot/docs/, then the current OpenSpec change:
+  - lidr-specboot/docs/base-standards.md — core principles, TDD, AI engineering, technology classification
+  - lidr-specboot/docs/backend-standards.md — agents, tools, RAG, voice adapters, evaluation, observability, security
+  - lidr-specboot/docs/frontend-standards.md — optional operator/HITL UI only when a frontend exists
+  - lidr-specboot/docs/api-spec.yml — canonical HTTP contracts
+  - lidr-specboot/docs/data-model.md — sessions, tools, retrieval, evaluation, traces
+  - lidr-specboot/docs/documentation-standards.md — docs and contract maintenance
+  - lidr-specboot/docs/openspec-tasks-mandatory-steps.md — gates by change type
+  Adopt the relevant agent from lidr-specboot/ai-specs/agents/ for the OpenSpec phase. Use lidr-specboot/ai-specs/skills/ for procedures. Skills compose with OpenSpec; they do not replace /ff, /apply, or /verify.
+
+rules:
+  _global:
+    - Before creating any artifact, read and apply lidr-specboot/docs/base-standards.md
+    - /enrich-us: adopt lidr-specboot/ai-specs/agents/product-analyst.md
+    - /ff, /new, /propose and design: adopt lidr-specboot/ai-specs/agents/ai-architect.md; add voice-ai-engineer.md or rag-engineer.md when those change types apply
+    - /apply: adopt lidr-specboot/ai-specs/agents/ai-engineer.md (plus voice/RAG specialists for their surfaces)
+    - /verify: adopt lidr-specboot/ai-specs/agents/evaluation-engineer.md
+    - /adversarial-review: adopt lidr-specboot/ai-specs/agents/security-reviewer.md and skill adversarial-review
+    - Use lidr-specboot/docs/api-spec.yml and lidr-specboot/docs/data-model.md for API and data consistency in specs and tasks
+  proposal:
+    - Always include a Non-goals section
+    - Classify the change type (code, API, tools, agents, RAG, voice, UI) so tasks.md can select the right gates
+  tasks:
+    - Follow lidr-specboot/docs/openspec-tasks-mandatory-steps.md
+    - Select verification gates by change type; do not assume curl+Playwright for every change
+    - Include evaluation gates for agent, prompt, tool, or retrieval changes
+
+operations:
+  apply:
+    guidance:
+      - Adopt lidr-specboot/ai-specs/agents/ai-engineer.md (plus voice-ai-engineer or rag-engineer when those surfaces change)
+      - Implement one task at a time. Tests or eval cases before production code
+      - Keep core code free of Vapi and other adapter SDKs; adapters live behind ports
+      - After apply and before archive, update OpenSpec artifacts first if the request changes
+  archive:
+    guidance:
+      - Do not archive until the change-type verification gate and, when applicable, adversarial-review are done
+      - Summarize the archive outcome before finishing
