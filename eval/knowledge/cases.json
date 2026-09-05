@@ -1,0 +1,26 @@
+{
+  "suiteName": "rag-foundation-retrieval",
+  "datasetVersion": "2026-09-05.1",
+  "chunkerVersion": "char-512-64-v1",
+  "parserVersion": "plain-v1",
+  "embeddingModelId": "fake-embed",
+  "embeddingModelVersion": "1",
+  "retrieverVersion": "cosine-v1",
+  "k": 4,
+  "requiresPaidModel": false,
+  "requiresVectorDatabase": false,
+  "requiresMcpServer": false,
+  "passCriteria": "Assert expected document or empty hits. Do not treat store unit tests as this gate.",
+  "cases": [
+    {
+      "id": "relevant-hours-hit",
+      "query": "What hours is the Northwind Demo Desk open on weekdays?",
+      "expectDocument": true
+    },
+    {
+      "id": "irrelevant-no-hit",
+      "query": "How do I reset a satellite gyroscope?",
+      "expectDocument": false
+    }
+  ]
+}

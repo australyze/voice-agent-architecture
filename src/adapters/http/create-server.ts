@@ -22,7 +22,10 @@ import type { LoggerPort } from "../../domain/ports/logger-port.js";
 import type { LlmPort } from "../../domain/ports/llm-port.js";
 import type { ObservabilityPort } from "../../domain/ports/observability-port.js";
 import type { PersistencePort } from "../../domain/ports/persistence-port.js";
+import type { RetrievalPort } from "../../domain/ports/retrieval-port.js";
 import type { ToolPort } from "../../domain/ports/tool-port.js";
+import { ingestExampleDocument } from "../../application/ingest-document.js";
+import { InMemoryRetrieval } from "../retrieval/in-memory-retrieval.js";
 import { VoiceBoundaryError } from "../../domain/errors.js";
 import { VOICE_ERROR_CODES } from "../../domain/voice.js";
 import { defaultFakeLlm } from "../llm/fake-llm.js";
@@ -58,6 +61,7 @@ export type HttpServerDependencies = {
   llmConfig?: LlmConfig;
   llm?: LlmPort;
   tools?: ToolPort;
+  retrieval?: RetrievalPort;
   observability?: ObservabilityPort;
   checkLivenessFn?: LivenessChecker;
 };
@@ -94,6 +98,10 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
       allowedTools: RUNTIME_DEMO_ALLOWLIST,
     });
   const observability = dependencies.observability ?? new LoggingObservability(dependencies.logger);
+  const retrieval = dependencies.retrieval ?? new InMemoryRetrieval();
+  if (dependencies.retrieval === undefined) {
+    await ingestExampleDocument({ llm, retrieval });
+  }
   const prompt = loadRuntimeDemoPrompt();
   const inboundMaxSkewMs = voice.inboundMaxSkewMs ?? DEFAULT_INBOUND_MAX_SKEW_MS;
   const inboundLimiter = new InboundRateLimiter(
@@ -133,6 +141,7 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
             llm,
             tools,
             observability,
+            retrieval,
             prompt,
             modelId: llmConfig.modelId,
             llmTimeoutMs: llmConfig.timeoutMs,

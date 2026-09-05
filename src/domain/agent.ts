@@ -6,6 +6,7 @@ export const AGENT_ERROR_CODES = {
   TOOL_TIMEOUT: "tool_timeout",
   LLM_TIMEOUT: "llm_timeout",
   LLM_PROVIDER: "llm_provider",
+  RETRIEVAL_FAILED: "retrieval_failed",
 } as const;
 
 export type AgentErrorCode = (typeof AGENT_ERROR_CODES)[keyof typeof AGENT_ERROR_CODES];
@@ -18,6 +19,7 @@ export const SAFE_AGENT_MESSAGES: Record<AgentErrorCode, string> = {
   tool_timeout: "The tool timed out",
   llm_timeout: "The model timed out",
   llm_provider: "The model provider failed",
+  retrieval_failed: "Retrieval failed",
 };
 
 export type AgentDecision = {
@@ -27,7 +29,13 @@ export type AgentDecision = {
   arguments?: Record<string, unknown>;
 };
 
-export type AgentStateName = "receiving" | "reasoning" | "awaiting_tool" | "completed" | "failed";
+export type AgentSource = {
+  documentId: string;
+  chunkId: string;
+  locator: string;
+};
+
+export type AgentStateName = "receiving" | "retrieving" | "reasoning" | "awaiting_tool" | "completed" | "failed";
 
 export type AgentStateTransition = {
   state: AgentStateName;
@@ -39,6 +47,7 @@ export type AgentTurnSuccess = {
   replyText: string;
   locale: string;
   status: "ok";
+  sources: AgentSource[];
   states?: AgentStateTransition[];
 };
 

@@ -51,6 +51,23 @@ describe("composition root", () => {
     await server.close();
   });
 
+  it("should_start_without_embedding_or_vector_credentials", async () => {
+    const config = loadConfig({
+      ...BASE_ENV,
+      PORT: "3000",
+    });
+    const server = await createRuntime(config, {
+      persistence: {
+        async ping() {},
+      },
+    });
+    const live = await server.inject({ method: "GET", url: "/health/live" });
+    expect(live.statusCode).toBe(200);
+    const knowledge = await server.inject({ method: "POST", url: "/knowledge/query", payload: {} });
+    expect(knowledge.statusCode).toBe(404);
+    await server.close();
+  });
+
   it("should_start_without_mcp_settings", async () => {
     const config = loadConfig({
       ...BASE_ENV,

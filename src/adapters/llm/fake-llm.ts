@@ -1,5 +1,14 @@
-import type { LlmCompleteRequest, LlmCompleteResult, LlmPort, LlmStructuredRequest } from "../../domain/ports/llm-port.js";
+import type {
+  LlmCompleteRequest,
+  LlmCompleteResult,
+  LlmEmbedRequest,
+  LlmEmbedResult,
+  LlmMessage,
+  LlmPort,
+  LlmStructuredRequest,
+} from "../../domain/ports/llm-port.js";
 import { DEFAULT_FAKE_MODEL_ID } from "../../domain/demo-tool.js";
+import { FAKE_EMBED_MODEL_ID, FAKE_EMBED_MODEL_VERSION, lexicalEmbed } from "../../domain/knowledge.js";
 
 export const FAKE_MODEL_ID = DEFAULT_FAKE_MODEL_ID;
 
@@ -13,6 +22,7 @@ export type FakeLlmStep =
 export class FakeLlm implements LlmPort {
   readonly modelId = FAKE_MODEL_ID;
   readonly packedInputs: string[] = [];
+  readonly structuredMessages: LlmMessage[][] = [];
   private readonly queue: FakeLlmStep[];
 
   constructor(script: FakeLlmStep[] = [{ kind: "reply", replyText: "Listo. Completé este turno." }]) {
@@ -33,8 +43,19 @@ export class FakeLlm implements LlmPort {
     yield result.text;
   }
 
+  async embed(request: LlmEmbedRequest): Promise<LlmEmbedResult> {
+    return {
+      vectors: request.texts.map((text) => lexicalEmbed(text)),
+      modelId: FAKE_EMBED_MODEL_ID,
+      modelVersion: FAKE_EMBED_MODEL_VERSION,
+    };
+  }
+
   async completeStructured<T>(_request: LlmStructuredRequest<unknown>): Promise<T> {
     this.packedInputs.push(_request.input);
+    if (_request.messages !== undefined) {
+      this.structuredMessages.push(_request.messages);
+    }
     const decision = await this.nextDecision();
     if (decision.kind === "garbage") {
       return { notADecision: true } as T;

@@ -17,8 +17,9 @@ src/
   adapters/
     http/           # health + inbound route wiring
     voice/          # Vapi/simulator translation only
-    llm/            # fake + optional HTTP completions adapter
+    llm/            # fake + optional HTTP completions adapter; `embed` is lexical offline
     tools/          # product registry (demo.normalize_text); test-only demo.echo_token off the product catalog
+    retrieval/      # in-memory cosine store (default); port-swappable
     persistence/    # PostgreSQL driver
     logging/        # structured JSON logger
   composition/      # process wiring
@@ -30,10 +31,10 @@ Dependencies point inward. Replacing a voice, LLM, store, or observability vendo
 
 | Port | Role | Status |
 | --- | --- | --- |
-| LLM | `complete`, `stream`, structured output | Fake by default; optional HTTP adapter |
+| LLM | `complete`, `stream`, structured output, `embed` | Fake by default; optional HTTP adapter. Embed is deterministic lexical (no live vendor) |
 | Speech | `transcribe`, `synthesize` | Interface only — unused on the inbound text path |
 | Tools | authorize + execute | In-process registry; product `demo.normalize_text` (`read`, `native`); MCP source reserved and denied |
-| Retrieval | query → source-located hits | Interface only |
+| Retrieval | `ingest` + `retrieve` with locators and scores | In-memory cosine adapter by default; later pgvector implements the same port |
 | Observability | emit span/trace | Logging adapter by default (no in-heap span list); `MemoryObservability` is test-only |
 | Persistence | `ping` (later repositories) | PostgreSQL adapter |
 | Logger | operation + outcome + optional correlation | JSON adapter |
@@ -63,9 +64,9 @@ This increment executes no product side effects. Later tools MUST declare a risk
 
 ## What this increment does not ship
 
-No multi-agent topology, RAG pipeline, LangGraph domain, Langfuse SDK, runtime MCP, outbound calling, or Session/Conversation/ToolCall tables. Canonical `lidr-specboot/docs/api-spec.yml` `/sessions` and `/tools/{toolName}/invoke` remain unimplemented.
+No multi-agent topology, production knowledge base, Graph RAG, LangGraph domain, Langfuse SDK, runtime MCP, outbound calling, or Session/Conversation/Document/Chunk tables. Canonical `lidr-specboot/docs/api-spec.yml` `/sessions`, `/tools/{toolName}/invoke`, `/knowledge/documents`, and `/knowledge/query` remain unimplemented.
 
-See [agents/runtime-demo.md](./agents/runtime-demo.md).
+See [knowledge.md](./knowledge.md) and [agents/runtime-demo.md](./agents/runtime-demo.md).
 
 ## Local network and health
 

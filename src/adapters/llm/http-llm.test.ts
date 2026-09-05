@@ -124,6 +124,20 @@ describe("HttpLlm", () => {
     ).rejects.toMatchObject({ code: AGENT_ERROR_CODES.LLM_PROVIDER });
   });
 
+  it("should_reject_embed_without_calling_a_live_provider", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 })) as unknown as typeof fetch;
+    const llm = new HttpLlm({
+      baseUrl: "https://llm.example",
+      apiKey: "placeholder",
+      modelId: "demo-model",
+      fetchImpl,
+    });
+
+    const embedded = await llm.embed({ texts: ["hours"] });
+    expect(embedded.vectors[0]?.length).toBeGreaterThan(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("should_map_network_failure_to_llm_provider", async () => {
     const llm = new HttpLlm({
       baseUrl: "https://llm.example",

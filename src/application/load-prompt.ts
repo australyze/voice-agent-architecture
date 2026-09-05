@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export const RUNTIME_DEMO_PROMPT_ID = "runtime-demo";
-export const RUNTIME_DEMO_PROMPT_VERSION = "1";
-export const RUNTIME_DEMO_PROMPT_PATH = "prompts/runtime-demo/v1.md";
+export const RUNTIME_DEMO_PROMPT_VERSION = "2";
+export const RUNTIME_DEMO_PROMPT_PATH = "prompts/runtime-demo/v2.md";
 
 export type PromptVersion = {
   promptId: string;
