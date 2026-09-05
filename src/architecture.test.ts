@@ -21,6 +21,11 @@ const FORBIDDEN_CORE_IMPORTS = [
   /typeorm/i,
   /@modelcontextprotocol/i,
   /\bfrom\s+["'][^"']*mcp[^"']*["']/i,
+  /pinecone/i,
+  /weaviate/i,
+  /chromadb/i,
+  /qdrant/i,
+  /voyageai/i,
 ];
 
 function walk(directory: string): string[] {

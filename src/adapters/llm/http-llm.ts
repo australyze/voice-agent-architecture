@@ -1,5 +1,14 @@
 import { AGENT_ERROR_CODES } from "../../domain/agent.js";
-import type { LlmCompleteRequest, LlmCompleteResult, LlmMessage, LlmPort, LlmStructuredRequest } from "../../domain/ports/llm-port.js";
+import { FAKE_EMBED_MODEL_ID, FAKE_EMBED_MODEL_VERSION, lexicalEmbed } from "../../domain/knowledge.js";
+import type {
+  LlmCompleteRequest,
+  LlmCompleteResult,
+  LlmEmbedRequest,
+  LlmEmbedResult,
+  LlmMessage,
+  LlmPort,
+  LlmStructuredRequest,
+} from "../../domain/ports/llm-port.js";
 
 export const DEFAULT_HTTP_LLM_TIMEOUT_MS = 1500;
 export const MAX_LLM_RESPONSE_BYTES = 64 * 1024;
@@ -28,6 +37,14 @@ export class HttpLlm implements LlmPort {
   async *stream(request: LlmCompleteRequest): AsyncIterable<string> {
     const result = await this.complete(request);
     yield result.text;
+  }
+
+  async embed(request: LlmEmbedRequest): Promise<LlmEmbedResult> {
+    return {
+      vectors: request.texts.map((text) => lexicalEmbed(text)),
+      modelId: FAKE_EMBED_MODEL_ID,
+      modelVersion: FAKE_EMBED_MODEL_VERSION,
+    };
   }
 
   async completeStructured<T>(request: LlmStructuredRequest<unknown>): Promise<T> {

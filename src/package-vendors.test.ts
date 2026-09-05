@@ -14,6 +14,11 @@ const FORBIDDEN_DEPENDENCIES = [
   "@modelcontextprotocol/sdk",
   "@modelcontextprotocol/server",
   "mcp",
+  "@pinecone-database/pinecone",
+  "weaviate-client",
+  "chromadb",
+  "@qdrant/js-client-rest",
+  "voyageai",
 ];
 
 describe("dependency allowlist", () => {

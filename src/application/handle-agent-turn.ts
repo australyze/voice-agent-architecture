@@ -8,7 +8,16 @@ import {
 } from "../domain/agent.js";
 import type { LlmMessage, LlmPort } from "../domain/ports/llm-port.js";
 import type { ObservabilityPort } from "../domain/ports/observability-port.js";
+import type { RetrievalPort } from "../domain/ports/retrieval-port.js";
 import type { ToolPort } from "../domain/ports/tool-port.js";
+import {
+  FAKE_EMBED_MODEL_ID,
+  FAKE_EMBED_MODEL_VERSION,
+  RETRIEVAL_K,
+  RETRIEVAL_THRESHOLD,
+} from "../domain/knowledge.js";
+import { redactSecrets } from "../domain/redact.js";
+import { assembleRetrieval, type AssembledSource } from "./assemble-retrieval.js";
 import {
   DEFAULT_FAKE_MODEL_ID,
   DEMO_TOOL_TIMEOUT_MS,
@@ -50,24 +59,41 @@ export type HandleAgentTurnDependencies = {
   llm: LlmPort;
   tools: ToolPort;
   observability: ObservabilityPort;
+  retrieval: RetrievalPort;
   prompt: PromptVersion;
   modelId?: string;
   llmTimeoutMs: number;
   allowedTools?: readonly string[];
 };
 
-export function packAgentContext(prompt: PromptVersion, userText: string, toolResult?: string): string {
+export function packAgentContext(
+  prompt: PromptVersion,
+  userText: string,
+  toolResult?: string,
+  retrievedBlock?: string,
+): string {
+  const retrieved =
+    retrievedBlock === undefined || retrievedBlock.trim() === "" ? "" : `\n\n${retrievedBlock}\n`;
   const toolBlock =
     toolResult === undefined
       ? ""
       : `\n\nUNTRUSTED_TOOL_RESULT:\n${toolResult}\n`;
-  return `${prompt.content}\n\nUNTRUSTED_USER_TEXT:\n${userText}${toolBlock}`;
+  return `${prompt.content}\n\nUNTRUSTED_USER_TEXT:\n${userText}${retrieved}${toolBlock}`;
 }
 
-function buildMessages(prompt: PromptVersion, userText: string, toolResult?: string): LlmMessage[] {
+function buildMessages(
+  prompt: PromptVersion,
+  userText: string,
+  toolResult?: string,
+  retrievedBlock?: string,
+): LlmMessage[] {
+  const userParts = [`UNTRUSTED_USER_TEXT:\n${userText}`];
+  if (retrievedBlock !== undefined && retrievedBlock.trim() !== "") {
+    userParts.push(retrievedBlock);
+  }
   const messages: LlmMessage[] = [
     { role: "system", content: prompt.content },
-    { role: "user", content: `UNTRUSTED_USER_TEXT:\n${userText}` },
+    { role: "user", content: userParts.join("\n\n") },
   ];
   if (toolResult !== undefined) {
     messages.push({ role: "tool", content: `UNTRUSTED_TOOL_RESULT:\n${toolResult}` });
@@ -96,9 +122,15 @@ export async function handleAgentTurn(
 ): Promise<AgentTurnResult> {
   const modelId = dependencies.modelId ?? DEFAULT_FAKE_MODEL_ID;
   const states: AgentStateTransition[] = [{ state: "receiving", actor: "runtime" }];
+  states.push({ state: "retrieving", actor: "runtime" });
+  const assembled = await retrieveForTurn(input.userText, dependencies);
+  if (!assembled.ok) {
+    return agentFailure(AGENT_ERROR_CODES.RETRIEVAL_FAILED, states);
+  }
+  const sources: AssembledSource[] = assembled.sources;
   let hops = 0;
-  let packed = packAgentContext(dependencies.prompt, input.userText);
-  let messages = buildMessages(dependencies.prompt, input.userText);
+  let packed = packAgentContext(dependencies.prompt, input.userText, undefined, assembled.block);
+  let messages = buildMessages(dependencies.prompt, input.userText, undefined, assembled.block);
   let retryUsed = false;
 
   while (true) {
@@ -182,6 +214,7 @@ export async function handleAgentTurn(
         replyText: decision.replyText ?? "",
         locale: input.locale,
         status: "ok",
+        sources,
         states,
       };
     }
@@ -238,8 +271,53 @@ export async function handleAgentTurn(
     if (toolJson.length > MAX_TOOL_STRING_CHARS) {
       return agentFailure(AGENT_ERROR_CODES.TOOL_FAILED, states);
     }
-    packed = packAgentContext(dependencies.prompt, input.userText, toolJson);
-    messages = buildMessages(dependencies.prompt, input.userText, toolJson);
+    packed = packAgentContext(dependencies.prompt, input.userText, toolJson, assembled.block);
+    messages = buildMessages(dependencies.prompt, input.userText, toolJson, assembled.block);
+  }
+}
+
+async function retrieveForTurn(
+  userText: string,
+  dependencies: HandleAgentTurnDependencies,
+): Promise<{ ok: true; block: string; sources: AssembledSource[] } | { ok: false }> {
+  const started = Date.now();
+  try {
+    const embedded = await dependencies.llm.embed({ texts: [userText] });
+    const retrieved = await dependencies.retrieval.retrieve({
+      query: userText,
+      queryEmbedding: embedded.vectors[0] ?? [],
+      k: RETRIEVAL_K,
+      threshold: RETRIEVAL_THRESHOLD,
+      embeddingModelId: embedded.modelId || FAKE_EMBED_MODEL_ID,
+      embeddingModelVersion: embedded.modelVersion || FAKE_EMBED_MODEL_VERSION,
+    });
+    const assembled = assembleRetrieval(retrieved.hits, RETRIEVAL_THRESHOLD);
+    dependencies.observability.emit({
+      name: "retrieval.retrieve",
+      kind: "retrieval",
+      status: "ok",
+      latencyMs: Date.now() - started,
+      corpusVersion: retrieved.corpusVersion,
+      retrieverVersion: retrieved.retrieverVersion,
+      argumentsRedacted: { query: redactSecrets(userText) },
+      resultBounded: {
+        hitIds: assembled.sources.map((source) => source.chunkId),
+        scores: retrieved.hits.filter((hit) => hit.score >= RETRIEVAL_THRESHOLD).map((hit) => hit.score),
+        locators: assembled.sources.map((source) => source.locator),
+        empty: assembled.sources.length === 0,
+      },
+    });
+    return { ok: true, ...assembled };
+  } catch {
+    dependencies.observability.emit({
+      name: "retrieval.retrieve",
+      kind: "retrieval",
+      status: "error",
+      latencyMs: Date.now() - started,
+      errorCode: AGENT_ERROR_CODES.RETRIEVAL_FAILED,
+      resultBounded: { hitIds: [], empty: true },
+    });
+    return { ok: false };
   }
 }
 

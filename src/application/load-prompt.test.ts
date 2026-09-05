@@ -5,8 +5,10 @@ describe("runtime-demo prompt version", () => {
   it("should_load_prompt_id_version_and_matching_content_hash", () => {
     const prompt = loadRuntimeDemoPrompt();
     expect(prompt.promptId).toBe("runtime-demo");
-    expect(prompt.version).toBe("1");
+    expect(prompt.version).toBe("2");
     expect(prompt.content).toContain("runtime-demo");
+    expect(prompt.content).toContain("UNTRUSTED_RETRIEVED_CONTEXT");
+    expect(prompt.path).toContain("v2.md");
     expect(prompt.hash).toBe(hashPromptContent(prompt.content));
   });
 

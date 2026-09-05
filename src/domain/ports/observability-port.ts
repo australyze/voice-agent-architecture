@@ -14,6 +14,8 @@ export type TraceSpan = {
   resultBounded?: unknown;
   validationOk?: boolean;
   errorCode?: string;
+  corpusVersion?: string;
+  retrieverVersion?: string;
 };
 
 export type ObservabilityPort = {

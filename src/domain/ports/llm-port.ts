@@ -22,8 +22,19 @@ export type LlmStructuredRequest<TSchema> = {
   messages?: LlmMessage[];
 };
 
+export type LlmEmbedRequest = {
+  texts: string[];
+};
+
+export type LlmEmbedResult = {
+  vectors: number[][];
+  modelId: string;
+  modelVersion: string;
+};
+
 export type LlmPort = {
   complete(request: LlmCompleteRequest): Promise<LlmCompleteResult>;
   stream(request: LlmCompleteRequest): AsyncIterable<string>;
   completeStructured<T>(request: LlmStructuredRequest<unknown>): Promise<T>;
+  embed(request: LlmEmbedRequest): Promise<LlmEmbedResult>;
 };

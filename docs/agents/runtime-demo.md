@@ -4,12 +4,13 @@ Single-turn demonstration agent owned by the application runtime. The voice adap
 
 ## Turn loop
 
-1. Pack versioned prompt `runtime-demo@1` from `prompts/runtime-demo/v1.md` (content hash at load).
-2. Call the LLM port with a closed structured decision (`reply` | `tool`).
-3. Authorize the name against the `runtime-demo` allowlist (policy list, not a hardcoded hop-loop branch), then execute through the tool registry once.
-4. Return typed success (`replyText`, locale) or a normalized agent error.
+1. Pack versioned prompt `runtime-demo@2` from `prompts/runtime-demo/v2.md` (content hash at load). Keep `v1.md` on disk for history.
+2. Retrieve against the current user text (runtime step, not a tool). Pack above-threshold hits as fenced `UNTRUSTED_RETRIEVED_CONTEXT:` (2048-character assemble cap). Embed/retrieve throws become `retrieval_failed`.
+3. Call the LLM port with a closed structured decision (`reply` | `tool`).
+4. Authorize the name against the `runtime-demo` allowlist (policy list, not a hardcoded hop-loop branch), then execute through the tool registry once.
+5. Return typed success (`replyText`, locale, `sources`) or a normalized agent error.
 
-User text and tool results are packed as `UNTRUSTED_*` blocks and sent on untrusted message roles. They are not system policy. Request-scoped states: `receiving` → `reasoning` → `awaiting_tool` (runtime) → `completed` | `failed`. There is no durable conversation memory.
+User text, retrieved chunks, and tool results are packed as `UNTRUSTED_*` blocks and sent on untrusted message roles. They are not system policy. Request-scoped states: `receiving` → `retrieving` → `reasoning` → `awaiting_tool` (runtime) → `completed` | `failed`. There is no durable conversation memory. See [knowledge.md](../knowledge.md).
 
 ## LLM adapters
 
@@ -82,6 +83,7 @@ Default **product** composition registers only this tool and passes the product 
 | `tool_timeout` | Tool exceeded budget |
 | `llm_timeout` | Model exceeded budget |
 | `llm_provider` | HTTP/network provider failure |
+| `retrieval_failed` | Embed or retrieve threw |
 
 Voice mapping: `llm_timeout` and `tool_timeout` → `VOICE_TIMEOUT`. All other agent failures → `VOICE_RUNTIME`. Adapter-facing messages never include raw model JSON or secrets.
 
@@ -94,4 +96,6 @@ npm test
 npx vitest run eval/runtime-demo/runtime-demo.eval.test.ts
 ```
 
-Suite `runtime-first-agent`, dataset `2026-09-05.2`, prompt `runtime-demo@1`. Assertions are codes and tool names, not live prose.
+Suite `runtime-first-agent`, dataset `2026-09-05.4`, prompt `runtime-demo@2`. Assertions are codes, tool names, packing, and source counts, not live prose.
+
+Retrieval suite: `npx vitest run eval/knowledge/knowledge.eval.test.ts` (`rag-foundation-retrieval`, dataset `2026-09-05.1`).
