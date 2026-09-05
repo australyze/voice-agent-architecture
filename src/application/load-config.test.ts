@@ -17,6 +17,10 @@ describe("loadConfig", () => {
       port: 3000,
       databaseUrl: VALID_ENV.DATABASE_URL,
       listenHost: "127.0.0.1",
+      voice: {
+        timeoutMs: 2000,
+        defaultLocale: "es",
+      },
     });
   });
 
@@ -88,5 +92,75 @@ describe("loadConfig", () => {
     });
 
     expect(config.port).toBe(3000);
+    expect(config.voice.inboundSecret).toBeUndefined();
+    expect(config.voice.providerApiKey).toBeUndefined();
+  });
+
+  it("should_load_when_voice_settings_are_omitted", () => {
+    const config = loadConfig(VALID_ENV);
+    expect(config.voice).toEqual({
+      timeoutMs: 2000,
+      defaultLocale: "es",
+    });
+  });
+
+  it("should_load_valid_optional_voice_settings", () => {
+    const config = loadConfig({
+      ...VALID_ENV,
+      VOICE_INBOUND_SECRET: "shared-secret",
+      VOICE_PROVIDER_API_KEY: "placeholder-key",
+      VOICE_PROVIDER_BASE_URL: "https://api.example.test",
+      VOICE_TIMEOUT_MS: "1500",
+      VOICE_DEFAULT_LOCALE: "es",
+    });
+
+    expect(config.voice).toEqual({
+      inboundSecret: "shared-secret",
+      providerApiKey: "placeholder-key",
+      providerBaseUrl: "https://api.example.test",
+      timeoutMs: 1500,
+      defaultLocale: "es",
+    });
+  });
+
+  it("should_fail_closed_when_present_voice_settings_are_invalid_without_echoing_secrets", () => {
+    try {
+      loadConfig({ ...VALID_ENV, VOICE_TIMEOUT_MS: "not-a-timeout" });
+      throw new Error("expected ConfigError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      const configError = error as ConfigError;
+      expect(configError.code).toBe("CONFIG_INVALID");
+      expect(configError.message).toContain("VOICE_TIMEOUT_MS");
+      expect(configError.message).not.toContain("not-a-timeout");
+    }
+
+    try {
+      loadConfig({ ...VALID_ENV, VOICE_PROVIDER_BASE_URL: "ftp://secret.example/path" });
+      throw new Error("expected ConfigError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      const configError = error as ConfigError;
+      expect(configError.code).toBe("CONFIG_INVALID");
+      expect(configError.message).toContain("VOICE_PROVIDER_BASE_URL");
+      expect(configError.message).not.toContain("secret.example");
+    }
+
+    try {
+      loadConfig({
+        ...VALID_ENV,
+        VOICE_INBOUND_SECRET: "supersecret-inbound",
+        VOICE_PROVIDER_API_KEY: "sk-supersecretvoicekey",
+        VOICE_DEFAULT_LOCALE: "spanish",
+      });
+      throw new Error("expected ConfigError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      const configError = error as ConfigError;
+      expect(configError.code).toBe("CONFIG_INVALID");
+      expect(configError.message).toContain("VOICE_DEFAULT_LOCALE");
+      expect(configError.message).not.toContain("supersecret-inbound");
+      expect(configError.message).not.toContain("sk-supersecretvoicekey");
+    }
   });
 });

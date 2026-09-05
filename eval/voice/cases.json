@@ -1,0 +1,72 @@
+{
+  "suiteName": "vapi-voice-interaction-adapter-voice",
+  "requiresLiveTelephony": false,
+  "cases": [
+    {
+      "id": "supported-turn-placeholder",
+      "name": "Supported transcript yields placeholder",
+      "configured": true,
+      "authenticated": true,
+      "request": {
+        "eventType": "transcript",
+        "occurredAt": "2026-09-05T12:00:00.000Z",
+        "externalChannelId": "call-1",
+        "interactionId": "int-1",
+        "requestId": "req-1",
+        "inputText": "hola",
+        "sessionId": "11111111-1111-4111-8111-111111111111"
+      },
+      "expect": {
+        "httpStatus": 200,
+        "body": {
+          "locale": "es",
+          "status": "ok"
+        },
+        "errorCode": null
+      }
+    },
+    {
+      "id": "invalid-payload",
+      "name": "Invalid payload is rejected",
+      "configured": true,
+      "authenticated": true,
+      "request": {
+        "eventType": "transcript"
+      },
+      "expect": {
+        "httpStatus": 400,
+        "errorCode": "VOICE_PAYLOAD_INVALID"
+      }
+    },
+    {
+      "id": "unsupported-event",
+      "name": "Unsupported event is rejected",
+      "configured": true,
+      "authenticated": true,
+      "request": {
+        "eventType": "barge_in",
+        "occurredAt": "2026-09-05T12:00:00.000Z",
+        "inputText": "hola"
+      },
+      "expect": {
+        "httpStatus": 400,
+        "errorCode": "VOICE_EVENT_UNSUPPORTED"
+      }
+    },
+    {
+      "id": "unauthenticated",
+      "name": "Missing authentication is rejected",
+      "configured": true,
+      "authenticated": false,
+      "request": {
+        "eventType": "transcript",
+        "occurredAt": "2026-09-05T12:00:00.000Z",
+        "inputText": "hola"
+      },
+      "expect": {
+        "httpStatus": 401,
+        "errorCode": "UNAUTHORIZED"
+      }
+    }
+  ]
+}

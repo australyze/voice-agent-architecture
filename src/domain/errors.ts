@@ -25,3 +25,10 @@ export class DependencyError extends AppError {
     this.name = "DependencyError";
   }
 }
+
+export class VoiceBoundaryError extends AppError {
+  constructor(code: string, message: string) {
+    super(code === "VOICE_CONFIG" ? "config" : "internal", code, message);
+    this.name = "VoiceBoundaryError";
+  }
+}

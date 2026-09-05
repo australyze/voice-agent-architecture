@@ -5,6 +5,12 @@ export type LogEvent = {
   outcome: LogOutcome;
   errorCode?: string;
   message?: string;
+  sessionId?: string;
+  requestId?: string;
+  interactionId?: string;
+  eventType?: string;
+  processingTimeMs?: number;
+  status?: string;
 };
 
 export type LoggerPort = {
