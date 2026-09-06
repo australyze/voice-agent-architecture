@@ -289,7 +289,24 @@ export class SupabasePersistence implements PersistencePort {
           ...(event.error_code == null ? {} : { errorCode: String(event.error_code) }),
         });
       }
+      if (session.evaluation != null && typeof session.evaluation === "object") {
+        await memory.saveSessionEvaluation(
+          sessionId,
+          session.evaluation as import("../../domain/session-call-evaluation.js").SessionCallEvaluation,
+        );
+      }
       return memory.getSessionReport(sessionId);
+    });
+  }
+
+  async saveSessionEvaluation(sessionId: string, evaluation: import("../../domain/session-call-evaluation.js").SessionCallEvaluation): Promise<void> {
+    return this.withFallback(() => this.fallback.saveSessionEvaluation(sessionId, evaluation), async () => {
+      await this.request(
+        "PATCH",
+        `/rest/v1/sessions?id=eq.${sessionId}`,
+        { evaluation, updated_at: evaluation.evaluatedAt },
+        { Prefer: "return=minimal" },
+      );
     });
   }
 

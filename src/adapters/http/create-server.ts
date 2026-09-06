@@ -45,6 +45,9 @@ import { PersistingObservability } from "../observability/persisting-observabili
 import { createSessionOwnerToolPort } from "../tools/native-tool-port.js";
 import {
   DEMO_ORCHESTRATE_SECRET_HEADER,
+  DEMO_PUBLIC_TOKEN_HEADER,
+  assertOperatorRecompute,
+  assertPublicListScoped,
   authenticateDemoOrchestrate,
   authenticateSessionHistory,
   mapOrchestrateBody,
@@ -130,6 +133,10 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
     voice.inboundRateLimit ?? DEFAULT_INBOUND_RATE_LIMIT,
     voice.inboundRateWindowMs ?? DEFAULT_INBOUND_RATE_WINDOW_MS,
   );
+  const sessionHistoryLimiter = new InboundRateLimiter(
+    voice.inboundRateLimit ?? DEFAULT_INBOUND_RATE_LIMIT,
+    voice.inboundRateWindowMs ?? DEFAULT_INBOUND_RATE_WINDOW_MS,
+  );
 
   server.get("/health/live", async () => liveness());
 
@@ -142,8 +149,25 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
   });
 
   server.get("/sessions", async (request) => {
-    authenticateSessionHistory(voice, headerValue(request.headers[DEMO_ORCHESTRATE_SECRET_HEADER]));
+    const auth = authenticateSessionHistory(
+      voice,
+      headerValue(request.headers[DEMO_ORCHESTRATE_SECRET_HEADER]),
+      headerValue(request.headers[DEMO_PUBLIC_TOKEN_HEADER]),
+    );
+    const rateKey =
+      headerValue(request.headers[DEMO_PUBLIC_TOKEN_HEADER]) ??
+      headerValue(request.headers[DEMO_ORCHESTRATE_SECRET_HEADER]) ??
+      "session-history";
+    if (!sessionHistoryLimiter.allow(inboundSecretHash(rateKey))) {
+      throw new OrchestrationBoundaryError(
+        ORCHESTRATION_ERROR_CODES.RATE_LIMITED,
+        adapterSafeOrchestrationMessage(ORCHESTRATION_ERROR_CODES.RATE_LIMITED),
+      );
+    }
     const query = request.query as { limit?: string; externalChannelId?: string };
+    if (auth.role === "public") {
+      assertPublicListScoped(query.externalChannelId);
+    }
     const raw = query.limit;
     const limit = raw === undefined ? 20 : Number(raw);
     return {
@@ -157,9 +181,29 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
   });
 
   server.get("/sessions/:sessionId", async (request) => {
-    authenticateSessionHistory(voice, headerValue(request.headers[DEMO_ORCHESTRATE_SECRET_HEADER]));
+    const auth = authenticateSessionHistory(
+      voice,
+      headerValue(request.headers[DEMO_ORCHESTRATE_SECRET_HEADER]),
+      headerValue(request.headers[DEMO_PUBLIC_TOKEN_HEADER]),
+    );
+    const rateKey =
+      headerValue(request.headers[DEMO_PUBLIC_TOKEN_HEADER]) ??
+      headerValue(request.headers[DEMO_ORCHESTRATE_SECRET_HEADER]) ??
+      "session-history";
+    if (!sessionHistoryLimiter.allow(inboundSecretHash(rateKey))) {
+      throw new OrchestrationBoundaryError(
+        ORCHESTRATION_ERROR_CODES.RATE_LIMITED,
+        adapterSafeOrchestrationMessage(ORCHESTRATION_ERROR_CODES.RATE_LIMITED),
+      );
+    }
     const { sessionId } = request.params as { sessionId: string };
-    return getSessionReport(dependencies.persistence, sessionId);
+    const query = request.query as { recompute?: string };
+    const recompute = query.recompute === "true" || query.recompute === "1";
+    assertOperatorRecompute(auth.role, recompute);
+    return getSessionReport(dependencies.persistence, sessionId, {
+      recompute,
+      allowWrite: auth.role === "operator",
+    });
   });
 
   server.post("/adapters/voice/inbound", { bodyLimit: INBOUND_BODY_LIMIT_BYTES }, async (request) => {

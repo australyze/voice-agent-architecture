@@ -18,5 +18,6 @@ export function composePersistence(
     recordExecutionEvent: (input: RecordExecutionEventInput) => history.recordExecutionEvent(input),
     listSessions: (query?: ListSessionsQuery) => history.listSessions(query),
     getSessionReport: (sessionId: string) => history.getSessionReport(sessionId),
+    saveSessionEvaluation: (sessionId, evaluation) => history.saveSessionEvaluation(sessionId, evaluation),
   };
 }

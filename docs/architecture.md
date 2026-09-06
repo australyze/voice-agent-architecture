@@ -73,12 +73,12 @@ No multi-agent topology, production knowledge base, Graph RAG, LangGraph domain,
 
 See [knowledge.md](./knowledge.md), [agents/runtime-demo.md](./agents/runtime-demo.md), [agents/wom-customer-service-agent.md](./agents/wom-customer-service-agent.md), and [evaluation-gate.md](./evaluation-gate.md).
 
-The WOM path is a **simulated** customer-service environment. It does not call WOM APIs. The interviewer web UI (HU #010) lives in `web/` and talks to Vapi for browser media. After hang-up it may fetch a thin session report from the backend. Public evaluation/deploy (HU #012) remains deferred. See [adapters/vapi-web-demo.md](./adapters/vapi-web-demo.md) and [persistence.md](./persistence.md).
+The WOM path is a **simulated** customer-service environment. It does not call WOM APIs. The interviewer web UI (HU #010) lives in `web/` and talks to Vapi for browser media. After hang-up it may fetch a session report and deterministic call evaluation from the backend. Public deploy steps are in [public-demo-deploy.md](./public-demo-deploy.md). See [adapters/vapi-web-demo.md](./adapters/vapi-web-demo.md), [evaluation-call.md](./evaluation-call.md), and [persistence.md](./persistence.md).
 
 ## Local network and health
 
 - Compose PostgreSQL is published on `127.0.0.1` only. Default credentials are local placeholders.
 - The process defaults to listen host `127.0.0.1`. `0.0.0.0` is opt-in.
-- `/health/live`, `/health/ready`, and `/health/voice` are unauthenticated. That is an explicit exception to authorizing every HTTP route: they expose only liveness, readiness, and voice integration status. `POST /adapters/voice/inbound` MUST be authenticated when voice is configured. `GET /sessions` and `GET /sessions/{sessionId}` require `x-demo-orchestrate-secret` (`DEMO_ORCHESTRATE_SECRET` or `VOICE_INBOUND_SECRET`). Loopback bind and table RLS are not substitutes for that header.
+- `/health/live`, `/health/ready`, and `/health/voice` are unauthenticated. That is an explicit exception to authorizing every HTTP route: they expose only liveness, readiness, and voice integration status. `POST /adapters/voice/inbound` MUST be authenticated when voice is configured. `GET /sessions` and `GET /sessions/{sessionId}` require `x-demo-orchestrate-secret` (operator) or `x-demo-public-token` (read-only, channel-scoped list). Loopback bind and table RLS are not substitutes for those headers. Never bake inbound/operator secrets into the Vite bundle.
 
 `lidr-specboot/docs/` was not changed by this increment. Canonical AI-engineering rules remain there.

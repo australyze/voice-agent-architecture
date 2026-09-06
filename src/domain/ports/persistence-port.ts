@@ -1,3 +1,4 @@
+import type { SessionCallEvaluation } from "../session-call-evaluation.js";
 import type {
   ConversationTurnRecord,
   ExecutionEventRecord,
@@ -25,4 +26,5 @@ export type PersistencePort = {
   recordExecutionEvent(input: RecordExecutionEventInput): Promise<ExecutionEventRecord>;
   listSessions(query?: ListSessionsQuery): Promise<SessionListItem[]>;
   getSessionReport(sessionId: string): Promise<SessionReport | null>;
+  saveSessionEvaluation(sessionId: string, evaluation: SessionCallEvaluation): Promise<void>;
 };

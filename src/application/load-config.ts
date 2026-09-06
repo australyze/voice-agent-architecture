@@ -105,6 +105,7 @@ const configSchema = z.object({
     .optional()
     .transform((value) => (value === undefined || value === "" ? DEFAULT_LLM_MODEL_ID : value)),
   DEMO_ORCHESTRATE_SECRET: optionalTrimmed,
+  DEMO_PUBLIC_TOKEN: optionalTrimmed,
   LLM_TIMEOUT_MS: z
     .string()
     .optional()
@@ -137,6 +138,7 @@ const configSchema = z.object({
 export type VoiceConfig = {
   inboundSecret?: string;
   demoOrchestrateSecret?: string;
+  demoPublicToken?: string;
   providerApiKey?: string;
   providerBaseUrl?: string;
   timeoutMs: number;
@@ -180,6 +182,7 @@ export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
     LISTEN_HOST: env.LISTEN_HOST === undefined || env.LISTEN_HOST === "" ? DEFAULT_LISTEN_HOST : env.LISTEN_HOST,
     VOICE_INBOUND_SECRET: env.VOICE_INBOUND_SECRET,
     DEMO_ORCHESTRATE_SECRET: env.DEMO_ORCHESTRATE_SECRET,
+    DEMO_PUBLIC_TOKEN: env.DEMO_PUBLIC_TOKEN,
     VOICE_PROVIDER_API_KEY: env.VOICE_PROVIDER_API_KEY,
     VOICE_PROVIDER_BASE_URL: env.VOICE_PROVIDER_BASE_URL,
     VOICE_TIMEOUT_MS: env.VOICE_TIMEOUT_MS,
@@ -223,6 +226,7 @@ export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
       ...(parsed.data.DEMO_ORCHESTRATE_SECRET === undefined
         ? {}
         : { demoOrchestrateSecret: parsed.data.DEMO_ORCHESTRATE_SECRET }),
+      ...(parsed.data.DEMO_PUBLIC_TOKEN === undefined ? {} : { demoPublicToken: parsed.data.DEMO_PUBLIC_TOKEN }),
       ...(parsed.data.VOICE_PROVIDER_API_KEY === undefined ? {} : { providerApiKey: parsed.data.VOICE_PROVIDER_API_KEY }),
       ...(parsed.data.VOICE_PROVIDER_BASE_URL === undefined
         ? {}

@@ -28,6 +28,7 @@ const ORCHESTRATION_STATUS: Record<string, number> = {
   payload_invalid: 400,
   session_invalid: 400,
   unauthorized: 401,
+  forbidden: 403,
   budget_exceeded: 429,
   rate_limited: 429,
   llm_timeout: 504,

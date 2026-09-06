@@ -6,6 +6,7 @@ import type { ObservabilityPort } from "../domain/ports/observability-port.js";
 import type { PersistencePort } from "../domain/ports/persistence-port.js";
 import { inboundIdempotencyKey } from "../domain/session-history.js";
 import { persistConversationTurn, persistSafely, persistVoiceLifecycle } from "./persist-execution.js";
+import { ensureSessionEvaluation } from "./ensure-session-evaluation.js";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -115,6 +116,13 @@ export async function handleVoiceTurn(turn: VoiceTurn, options: HandleVoiceTurnO
           options.logger,
           { sessionId: turn.sessionId, traceId },
         );
+        if (turn.eventType === "call_ended") {
+          await persistSafely(
+            () => ensureSessionEvaluation(options.persistence as PersistencePort, turn.sessionId),
+            options.logger,
+            { sessionId: turn.sessionId, traceId },
+          );
+        }
       }
       return finish({
         ok: true,

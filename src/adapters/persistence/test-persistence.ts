@@ -12,6 +12,7 @@ export function createPersistenceStub(ping: PersistencePort["ping"] = async () =
     recordExecutionEvent: (input) => history.recordExecutionEvent(input),
     listSessions: (query) => history.listSessions(query),
     getSessionReport: (sessionId) => history.getSessionReport(sessionId),
+    saveSessionEvaluation: (sessionId, evaluation) => history.saveSessionEvaluation(sessionId, evaluation),
   };
 }
 
@@ -34,5 +35,6 @@ export function downPersistence(): PersistencePort {
     recordExecutionEvent: (input) => history.recordExecutionEvent(input),
     listSessions: (query) => history.listSessions(query),
     getSessionReport: (sessionId) => history.getSessionReport(sessionId),
+    saveSessionEvaluation: (sessionId, evaluation) => history.saveSessionEvaluation(sessionId, evaluation),
   };
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ListSessionsQuery, PersistencePort } from "../../domain/ports/persistence-port.js";
+import type { SessionCallEvaluation } from "../../domain/session-call-evaluation.js";
 import type {
   ConversationTurnRecord,
   ExecutionEventRecord,
@@ -192,11 +193,19 @@ export class MemoryPersistence implements PersistencePort {
       })),
       toolCalls,
       trace,
-      evaluation: null,
+      evaluation: session.evaluation ?? null,
       ...(session.traceId === undefined ? {} : { traceId: session.traceId }),
       ...(session.endedAt === undefined ? {} : { endedAt: session.endedAt }),
       ...(session.durationMs === undefined ? {} : { durationMs: session.durationMs }),
     };
+  }
+
+  async saveSessionEvaluation(sessionId: string, evaluation: SessionCallEvaluation): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (session === undefined) {
+      throw new Error(`session not found: ${sessionId}`);
+    }
+    this.sessions.set(sessionId, { ...session, evaluation, updatedAt: evaluation.evaluatedAt });
   }
 
   private findSession(input: UpsertSessionInput): SessionRecord | undefined {

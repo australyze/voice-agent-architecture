@@ -102,22 +102,54 @@ describe("DemoApp", () => {
     vi.unstubAllEnvs();
   });
 
-  it("should_show_loaded_backend_report_when_channel_id_and_secret_succeed", async () => {
+  it("should_show_loaded_backend_report_after_passcode_unlock", async () => {
     vi.stubEnv("VITE_PUBLIC_API_BASE_URL", "http://127.0.0.1:3000");
-    vi.stubEnv("VITE_DEMO_ORCHESTRATE_SECRET", "demo-secret");
     const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
       const url = String(input);
       const headers = new Headers(init?.headers);
-      expect(headers.get("x-demo-orchestrate-secret")).toBe("demo-secret");
+      expect(headers.get("x-demo-public-token")).toBe("public-demo-token");
+      expect(headers.get("x-demo-orchestrate-secret")).toBeNull();
       expect(url).not.toContain("limit=1");
-      if (url.includes("externalChannelId=vapi-1")) {
+      if (url.includes("externalChannelId=")) {
+        expect(url).toContain("externalChannelId=vapi-1");
         return new Response(JSON.stringify({ data: [{ sessionId: "11111111-1111-4111-8111-111111111111" }] }), {
           status: 200,
         });
       }
-      return new Response(JSON.stringify({ sessionId: "11111111-1111-4111-8111-111111111111", status: "completed" }), {
-        status: 200,
-      });
+      return new Response(
+        JSON.stringify({
+          sessionId: "11111111-1111-4111-8111-111111111111",
+          status: "completed",
+          evaluation: {
+            overallStatus: "passed",
+            scorerVersion: "session-call-eval/1.0.0",
+            evaluatedAt: "2026-09-06T12:02:00.000Z",
+            dimensions: [
+              {
+                id: "goal_achieved",
+                verdict: "met",
+                evidence: [{ kind: "session", note: "fixture goal" }],
+              },
+              {
+                id: "tool_selection",
+                verdict: "met",
+                evidence: [{ kind: "tool_call", note: "fixture tool" }],
+              },
+              {
+                id: "grounded_answer",
+                verdict: "met",
+                evidence: [{ kind: "turn", note: "fixture grounded" }],
+              },
+              {
+                id: "policy_compliance",
+                verdict: "met",
+                evidence: [{ kind: "session", note: "fixture policy" }],
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
     });
     vi.stubGlobal("fetch", fetchMock);
     const fake = createFakeMediaClient();
@@ -131,14 +163,22 @@ describe("DemoApp", () => {
     act(() => {
       fake.emit({ type: "call-end" });
     });
+    expect(await screen.findByText(/Ingresa el passcode de demo/i)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText(/Passcode de demo/i), "public-demo-token");
+    await user.click(screen.getByRole("button", { name: "Desbloquear reporte" }));
     expect(await screen.findByText(/Historial del backend recuperado/)).toBeInTheDocument();
+    expect(screen.getByText("Evaluación automática")).toBeInTheDocument();
+    expect(screen.getByText("goal_achieved")).toBeInTheDocument();
+    expect(screen.getByText("¿Se cumplió el objetivo?")).toBeInTheDocument();
+    expect(screen.getAllByText("Cumplido").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Re-evaluar" })).not.toBeInTheDocument();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
 
-  it("should_show_unavailable_when_session_report_is_unauthorized", async () => {
+  it("should_show_unavailable_when_passcode_is_rejected", async () => {
     vi.stubEnv("VITE_PUBLIC_API_BASE_URL", "http://127.0.0.1:3000");
-    vi.stubEnv("VITE_DEMO_ORCHESTRATE_SECRET", "wrong");
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ success: false }), { status: 401 }));
     vi.stubGlobal("fetch", fetchMock);
     const fake = createFakeMediaClient();
@@ -152,6 +192,9 @@ describe("DemoApp", () => {
     act(() => {
       fake.emit({ type: "call-end" });
     });
+    expect(await screen.findByText(/Ingresa el passcode de demo/i)).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Passcode de demo/i), "wrong");
+    await user.click(screen.getByRole("button", { name: "Desbloquear reporte" }));
     expect(await screen.findByText(/No fue posible recuperar el historial del backend/i)).toBeInTheDocument();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
