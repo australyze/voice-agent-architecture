@@ -1,28 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { AppError, DependencyError } from "../../domain/errors.js";
 import type { LoggerPort } from "../../domain/ports/logger-port.js";
-import type { PersistencePort } from "../../domain/ports/persistence-port.js";
+import { downPersistence, readyPersistence } from "../persistence/test-persistence.js";
 import { createServer } from "./create-server.js";
 
 function silentLogger(): LoggerPort {
   return { log() {} };
-}
-
-function readyPersistence(): PersistencePort {
-  return {
-    async ping() {},
-  };
-}
-
-function downPersistence(): PersistencePort {
-  return {
-    async ping() {
-      throw new DependencyError(
-        "Persistence is unavailable for postgresql://user:supersecret@localhost:5432/db",
-        "PERSISTENCE_UNAVAILABLE",
-      );
-    },
-  };
 }
 
 describe("health HTTP", () => {

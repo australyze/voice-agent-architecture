@@ -27,6 +27,7 @@ const FORBIDDEN_CORE_IMPORTS = [
   /weaviate/i,
   /chromadb/i,
   /qdrant/i,
+  /@supabase/i,
   /voyageai/i,
   /promptfoo/i,
   /deepeval/i,

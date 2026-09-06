@@ -40,7 +40,7 @@ Dependencies point inward. Replacing a voice, LLM, store, or observability vendo
 | Tools | authorize + execute | In-process registry; product `demo.normalize_text` and three `wom.*` read tools (`native`); MCP source reserved and denied |
 | Retrieval | `ingest` + `retrieve` with locators and scores | In-memory cosine adapter by default; later pgvector implements the same port |
 | Observability | emit span/trace | Logging adapter by default writes reconstructable metadata (`traceId`, kind, name, latency, status, optional tokens/cost). Retrieval spans use `queryHash` only. No in-heap span list; `MemoryObservability` is test-only. No vendor SDK |
-| Persistence | `ping` (later repositories) | PostgreSQL adapter |
+| Persistence | `ping` + session history (upsert, turns, tools, events, list, report) | PostgreSQL ping + in-memory or Supabase adapter |
 | Logger | operation + outcome + correlation / trace metadata | JSON adapter; redacts secret shapes |
 | Judge | structured quality score | Optional port; unused on the default quality gate |
 
@@ -54,7 +54,7 @@ Vapi / simulator → adapters/voice → VoiceTurn → handleVoiceTurn → handle
 - **Agent Runtime** owns session-owner agents (`runtime-demo` by default, optional `wom-customer-service-agent` via `VOICE_SESSION_OWNER`): prompt, LLM port, tool allowlist bound on the production tool port and on `handleAgentTurn`, traces.
 - **Domain** stays provider independent. Placeholder success is no longer the voice happy path.
 
-Media / channel identity (`externalChannelId`) is not business state. This increment does not persist `Session` or `ConversationTurn` tables.
+Media / channel identity (`externalChannelId`) is not business state. Sessions, conversation turns, tool calls, and execution events are persisted through the persistence port. See [persistence.md](./persistence.md).
 
 The Vapi-facing URL is `POST /adapters/voice/inbound`. It is **not** canonical `POST /ingress/interaction`. See [adapters/vapi-inbound.md](./adapters/vapi-inbound.md).
 
@@ -69,16 +69,16 @@ This increment executes no product side effects. Later tools MUST declare a risk
 
 ## What this increment does not ship
 
-No multi-agent topology, production knowledge base, Graph RAG, LangGraph domain, Langfuse SDK, runtime MCP, outbound calling, or Session/Conversation/Document/Chunk/EvaluationRun tables. Canonical `lidr-specboot/docs/api-spec.yml` `/sessions`, `/tools/{toolName}/invoke`, `/knowledge/documents`, `/knowledge/query`, and `/evaluations/runs` remain unimplemented.
+No multi-agent topology, production knowledge base, Graph RAG, LangGraph domain, Langfuse SDK, runtime MCP, outbound calling, or EvaluationRun tables. `GET /sessions` and `GET /sessions/{sessionId}` are implemented as read-only history. Canonical `lidr-specboot/docs/api-spec.yml` `/tools/{toolName}/invoke`, `/knowledge/documents`, `/knowledge/query`, and `/evaluations/runs` remain unimplemented.
 
 See [knowledge.md](./knowledge.md), [agents/runtime-demo.md](./agents/runtime-demo.md), [agents/wom-customer-service-agent.md](./agents/wom-customer-service-agent.md), and [evaluation-gate.md](./evaluation-gate.md).
 
-The WOM path is a **simulated** customer-service environment. It does not call WOM APIs. The interviewer web UI (HU #010) lives in `web/` and talks to Vapi only for browser media. Persistence/observability UI (HU #011) and public evaluation/deploy (HU #012) remain deferred. See [adapters/vapi-web-demo.md](./adapters/vapi-web-demo.md).
+The WOM path is a **simulated** customer-service environment. It does not call WOM APIs. The interviewer web UI (HU #010) lives in `web/` and talks to Vapi for browser media. After hang-up it may fetch a thin session report from the backend. Public evaluation/deploy (HU #012) remains deferred. See [adapters/vapi-web-demo.md](./adapters/vapi-web-demo.md) and [persistence.md](./persistence.md).
 
 ## Local network and health
 
 - Compose PostgreSQL is published on `127.0.0.1` only. Default credentials are local placeholders.
 - The process defaults to listen host `127.0.0.1`. `0.0.0.0` is opt-in.
-- `/health/live`, `/health/ready`, and `/health/voice` are unauthenticated. That is an explicit exception to authorizing every HTTP route: they expose only liveness, readiness, and voice integration status. `POST /adapters/voice/inbound` MUST be authenticated when voice is configured.
+- `/health/live`, `/health/ready`, and `/health/voice` are unauthenticated. That is an explicit exception to authorizing every HTTP route: they expose only liveness, readiness, and voice integration status. `POST /adapters/voice/inbound` MUST be authenticated when voice is configured. `GET /sessions` and `GET /sessions/{sessionId}` require `x-demo-orchestrate-secret` (`DEMO_ORCHESTRATE_SECRET` or `VOICE_INBOUND_SECRET`). Loopback bind and table RLS are not substitutes for that header.
 
 `lidr-specboot/docs/` was not changed by this increment. Canonical AI-engineering rules remain there.

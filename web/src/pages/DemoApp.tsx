@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AgentCard } from "@/components/agent/AgentCard";
 import { CallSummary } from "@/components/agent/CallSummary";
 import { ConversationTranscript } from "@/components/agent/ConversationTranscript";
@@ -10,6 +10,7 @@ import { Alert } from "@/components/ui/alert";
 import { createUnconfiguredClient } from "@/lib/voice/create-unconfigured-client";
 import { createVapiMediaClient } from "@/lib/voice/create-vapi-client";
 import { useVoiceAgent } from "@/lib/voice/use-voice-agent";
+import { fetchSessionReportByChannelId } from "@/lib/api/session-report";
 import { MICROPHONE_CONSENT, type VoiceMediaClient } from "@/lib/voice/types";
 
 function formatDuration(totalSeconds: number): string {
@@ -37,6 +38,24 @@ export function DemoApp({ mediaClient }: DemoAppProps) {
   const client = useMemo(() => mediaClient ?? clientFromEnv(), [mediaClient]);
   const voice = useVoiceAgent(client);
   const [hint, setHint] = useState("Prueba una experiencia de atención al cliente impulsada por IA y voz.");
+  const [reportState, setReportState] = useState<"loading" | "loaded" | "unavailable">("unavailable");
+
+  useEffect(() => {
+    if (voice.callState !== "completed") {
+      return;
+    }
+    const baseUrl = import.meta.env.VITE_PUBLIC_API_BASE_URL;
+    const secret = import.meta.env.VITE_DEMO_ORCHESTRATE_SECRET;
+    const channelId = voice.externalChannelId;
+    if (!baseUrl || !secret || !channelId) {
+      setReportState("unavailable");
+      return;
+    }
+    setReportState("loading");
+    void fetchSessionReportByChannelId(baseUrl, secret, channelId)
+      .then(() => setReportState("loaded"))
+      .catch(() => setReportState("unavailable"));
+  }, [voice.callState, voice.externalChannelId]);
 
   return (
     <div className="min-h-screen bg-wom-background text-wom-text">
@@ -82,7 +101,11 @@ export function DemoApp({ mediaClient }: DemoAppProps) {
         ) : null}
 
         {voice.callState === "completed" ? (
-          <CallSummary durationSeconds={voice.durationSeconds} turnCount={voice.transcript.length} />
+          <CallSummary
+            durationSeconds={voice.durationSeconds}
+            turnCount={voice.transcript.length}
+            reportState={reportState}
+          />
         ) : null}
 
         {voice.callState === "idle" || voice.callState === "error" || voice.callState === "completed" ? (

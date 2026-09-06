@@ -77,7 +77,84 @@ describe("DemoApp", () => {
     });
     expect(await screen.findByText("Conversación finalizada")).toBeInTheDocument();
     expect(screen.getByText(/Ver trazabilidad/)).toBeInTheDocument();
-    expect(screen.getByText(/persistencia \(HU #011\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/No fue posible recuperar el historial del backend/i)).toBeInTheDocument();
+  });
+
+  it("should_not_fetch_latest_global_session_when_channel_id_is_unknown", async () => {
+    vi.stubEnv("VITE_PUBLIC_API_BASE_URL", "http://127.0.0.1:3000");
+    vi.stubEnv("VITE_DEMO_ORCHESTRATE_SECRET", "demo-secret");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const fake = createFakeMediaClient();
+    const user = userEvent.setup();
+    render(<DemoApp mediaClient={fake.client} />);
+    await user.click(screen.getByRole("button", { name: "Hablar con WOM AI" }));
+    act(() => {
+      fake.emit({ type: "call-start" });
+    });
+    await user.click(screen.getByRole("button", { name: "Finalizar conversación" }));
+    act(() => {
+      fake.emit({ type: "call-end" });
+    });
+    expect(await screen.findByText(/No fue posible recuperar el historial del backend/i)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("should_show_loaded_backend_report_when_channel_id_and_secret_succeed", async () => {
+    vi.stubEnv("VITE_PUBLIC_API_BASE_URL", "http://127.0.0.1:3000");
+    vi.stubEnv("VITE_DEMO_ORCHESTRATE_SECRET", "demo-secret");
+    const fetchMock = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      expect(headers.get("x-demo-orchestrate-secret")).toBe("demo-secret");
+      expect(url).not.toContain("limit=1");
+      if (url.includes("externalChannelId=vapi-1")) {
+        return new Response(JSON.stringify({ data: [{ sessionId: "11111111-1111-4111-8111-111111111111" }] }), {
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ sessionId: "11111111-1111-4111-8111-111111111111", status: "completed" }), {
+        status: 200,
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const fake = createFakeMediaClient();
+    const user = userEvent.setup();
+    render(<DemoApp mediaClient={fake.client} />);
+    await user.click(screen.getByRole("button", { name: "Hablar con WOM AI" }));
+    act(() => {
+      fake.emit({ type: "call-start", externalChannelId: "vapi-1" });
+    });
+    await user.click(screen.getByRole("button", { name: "Finalizar conversación" }));
+    act(() => {
+      fake.emit({ type: "call-end" });
+    });
+    expect(await screen.findByText(/Historial del backend recuperado/)).toBeInTheDocument();
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("should_show_unavailable_when_session_report_is_unauthorized", async () => {
+    vi.stubEnv("VITE_PUBLIC_API_BASE_URL", "http://127.0.0.1:3000");
+    vi.stubEnv("VITE_DEMO_ORCHESTRATE_SECRET", "wrong");
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ success: false }), { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const fake = createFakeMediaClient();
+    const user = userEvent.setup();
+    render(<DemoApp mediaClient={fake.client} />);
+    await user.click(screen.getByRole("button", { name: "Hablar con WOM AI" }));
+    act(() => {
+      fake.emit({ type: "call-start", externalChannelId: "vapi-1" });
+    });
+    await user.click(screen.getByRole("button", { name: "Finalizar conversación" }));
+    act(() => {
+      fake.emit({ type: "call-end" });
+    });
+    expect(await screen.findByText(/No fue posible recuperar el historial del backend/i)).toBeInTheDocument();
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("should_show_safe_error_without_secrets", async () => {

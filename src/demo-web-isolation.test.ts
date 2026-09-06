@@ -60,6 +60,20 @@ describe("demo web isolation", () => {
     }
   });
 
+  it("should_keep_web_free_of_supabase_and_service_role_credentials", () => {
+    const envExample = readFileSync(join("web", ".env.example"), "utf8");
+    expect(envExample).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY/);
+    expect(envExample).not.toMatch(/SERVICE_ROLE/);
+    const packageJson = readFileSync(join("web", "package.json"), "utf8");
+    expect(packageJson).not.toMatch(/@supabase/);
+    const files = walk(join("web", "src"), (name) => /\.(ts|tsx)$/.test(name));
+    for (const file of files) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toMatch(/@supabase/);
+      expect(source, file).not.toMatch(/SERVICE_ROLE/);
+    }
+  });
+
   it("should_keep_web_free_of_wom_tool_executors_and_prompts", () => {
     const files = walk(join("web", "src"), (name) => /\.(ts|tsx)$/.test(name));
     for (const file of files) {

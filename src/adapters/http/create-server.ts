@@ -20,6 +20,7 @@ import { handleOrchestratedTurn } from "../../application/handle-orchestrated-tu
 import { RUNTIME_DEMO_ALLOWLIST } from "../../domain/demo-tool.js";
 import { WOM_CUSTOMER_SERVICE_AGENT_ID, WOM_CUSTOMER_SERVICE_ALLOWLIST } from "../../domain/wom-tools.js";
 import { handleVoiceTurn } from "../../application/handle-voice-turn.js";
+import { getSessionReport, listSessionReports } from "../../application/get-session-report.js";
 import {
   loadDemoClassifyPrompt,
   loadDemoNormalizePrompt,
@@ -40,10 +41,12 @@ import { VOICE_ERROR_CODES } from "../../domain/voice.js";
 import { defaultFakeLlm } from "../llm/fake-llm.js";
 import { HttpLlm } from "../llm/http-llm.js";
 import { LoggingObservability } from "../observability/logging-observability.js";
+import { PersistingObservability } from "../observability/persisting-observability.js";
 import { createSessionOwnerToolPort } from "../tools/native-tool-port.js";
 import {
   DEMO_ORCHESTRATE_SECRET_HEADER,
   authenticateDemoOrchestrate,
+  authenticateSessionHistory,
   mapOrchestrateBody,
   resolveDemoOrchestrateSecret,
 } from "./demo-orchestrate.js";
@@ -110,7 +113,11 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
   const womOwner = sessionOwner === WOM_CUSTOMER_SERVICE_AGENT_ID;
   const allowedTools = womOwner ? WOM_CUSTOMER_SERVICE_ALLOWLIST : RUNTIME_DEMO_ALLOWLIST;
   const tools = dependencies.tools ?? createSessionOwnerToolPort(allowedTools);
-  const observability = dependencies.observability ?? new LoggingObservability(dependencies.logger);
+  const baseObservability = dependencies.observability ?? new LoggingObservability(dependencies.logger);
+  const observability =
+    dependencies.observability === undefined
+      ? new PersistingObservability(baseObservability, dependencies.persistence, dependencies.logger)
+      : new PersistingObservability(dependencies.observability, dependencies.persistence, dependencies.logger);
   const retrieval = dependencies.retrieval ?? new InMemoryRetrieval();
   if (dependencies.retrieval === undefined && !womOwner) {
     await ingestExampleDocument({ llm, retrieval });
@@ -134,6 +141,27 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
     return checkVoiceIntegration(voice);
   });
 
+  server.get("/sessions", async (request) => {
+    authenticateSessionHistory(voice, headerValue(request.headers[DEMO_ORCHESTRATE_SECRET_HEADER]));
+    const query = request.query as { limit?: string; externalChannelId?: string };
+    const raw = query.limit;
+    const limit = raw === undefined ? 20 : Number(raw);
+    return {
+      data: await listSessionReports(dependencies.persistence, {
+        limit: Number.isFinite(limit) ? limit : 20,
+        ...(query.externalChannelId === undefined || query.externalChannelId === ""
+          ? {}
+          : { externalChannelId: query.externalChannelId }),
+      }),
+    };
+  });
+
+  server.get("/sessions/:sessionId", async (request) => {
+    authenticateSessionHistory(voice, headerValue(request.headers[DEMO_ORCHESTRATE_SECRET_HEADER]));
+    const { sessionId } = request.params as { sessionId: string };
+    return getSessionReport(dependencies.persistence, sessionId);
+  });
+
   server.post("/adapters/voice/inbound", { bodyLimit: INBOUND_BODY_LIMIT_BYTES }, async (request) => {
     authenticateInbound(voice, headerValue(request.headers[VOICE_INBOUND_SECRET_HEADER]));
     const turn = mapInboundToVoiceTurn(request.body);
@@ -146,6 +174,8 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
       timeoutMs: voice.timeoutMs,
       logger: dependencies.logger,
       observability,
+      persistence: dependencies.persistence,
+      agentId: sessionOwner,
       runAgent: (voiceTurn, correlation) =>
         handleAgentTurn(
           {

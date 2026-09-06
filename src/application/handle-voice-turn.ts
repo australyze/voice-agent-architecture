@@ -3,6 +3,9 @@ import { AGENT_ERROR_CODES, type AgentTurnResult } from "../domain/agent.js";
 import { VOICE_ERROR_CODES, type VoiceTurn, type VoiceTurnResult } from "../domain/voice.js";
 import type { LoggerPort } from "../domain/ports/logger-port.js";
 import type { ObservabilityPort } from "../domain/ports/observability-port.js";
+import type { PersistencePort } from "../domain/ports/persistence-port.js";
+import { inboundIdempotencyKey } from "../domain/session-history.js";
+import { persistConversationTurn, persistSafely, persistVoiceLifecycle } from "./persist-execution.js";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -15,6 +18,8 @@ export type HandleVoiceTurnOptions = {
   timeoutMs: number;
   logger: LoggerPort;
   observability?: ObservabilityPort;
+  persistence?: PersistencePort;
+  agentId?: string;
   runAgent?: (turn: VoiceTurn, correlation: VoiceTurnCorrelation) => Promise<AgentTurnResult>;
   work?: (turn: VoiceTurn) => Promise<void>;
 };
@@ -102,10 +107,59 @@ export async function handleVoiceTurn(turn: VoiceTurn, options: HandleVoiceTurnO
   });
 
   try {
+    const isLifecycle = turn.eventType === "call_started" || turn.eventType === "call_ended";
+    if (isLifecycle) {
+      if (options.persistence !== undefined) {
+        await persistSafely(
+          () => persistVoiceLifecycle(options.persistence as PersistencePort, turn, { agentId: options.agentId ?? "runtime-demo", traceId }),
+          options.logger,
+          { sessionId: turn.sessionId, traceId },
+        );
+      }
+      return finish({
+        ok: true,
+        reply: { text: "", locale, status: "ok" },
+      });
+    }
+
     if (options.runAgent !== undefined) {
       const agentResult = await Promise.race([options.runAgent(turn, { traceId }), timeout]);
       if (!agentResult.ok) {
         return finish(mapAgentFailure(agentResult.error.code));
+      }
+      if (options.persistence !== undefined) {
+        const occurredAt = turn.occurredAt.toISOString();
+        await persistSafely(
+          async () => {
+            await persistVoiceLifecycle(options.persistence as PersistencePort, turn, {
+              agentId: options.agentId ?? "runtime-demo",
+              traceId,
+            });
+            await persistConversationTurn(options.persistence as PersistencePort, {
+              sessionId: turn.sessionId,
+              role: "user",
+              text: turn.inputText,
+              createdAt: occurredAt,
+              idempotencyKey: inboundIdempotencyKey({
+                eventType: "transcript",
+                sessionId: turn.sessionId,
+                occurredAt,
+                inputText: turn.inputText,
+                ...(turn.externalChannelId === undefined ? {} : { externalChannelId: turn.externalChannelId }),
+                ...(turn.requestId === undefined ? {} : { requestId: turn.requestId }),
+              }),
+            });
+            await persistConversationTurn(options.persistence as PersistencePort, {
+              sessionId: turn.sessionId,
+              role: "assistant",
+              text: agentResult.replyText,
+              createdAt: new Date().toISOString(),
+              idempotencyKey: `${traceId}|assistant`,
+            });
+          },
+          options.logger,
+          { sessionId: turn.sessionId, traceId },
+        );
       }
       return finish({
         ok: true,

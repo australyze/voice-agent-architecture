@@ -112,6 +112,18 @@ const configSchema = z.object({
     .refine((value) => /^\d+$/.test(value), "LLM_TIMEOUT_MS must be an integer")
     .transform((value) => Number(value))
     .refine((ms) => ms >= 1 && ms <= 60_000, "LLM_TIMEOUT_MS must be between 1 and 60000"),
+  SUPABASE_URL: optionalTrimmed.refine((value) => {
+    if (value === undefined) {
+      return true;
+    }
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "SUPABASE_URL must be an http URL"),
+  SUPABASE_SERVICE_ROLE_KEY: optionalTrimmed,
   VOICE_SESSION_OWNER: z
     .string()
     .optional()
@@ -139,6 +151,11 @@ export type LlmConfig =
   | { mode: "fake"; timeoutMs: number; modelId: string }
   | { mode: "http"; timeoutMs: number; modelId: string; baseUrl: string; apiKey: string };
 
+export type SupabaseConfig = {
+  url: string;
+  serviceRoleKey: string;
+};
+
 export type AppConfig = {
   nodeEnv: "development" | "test" | "production";
   port: number;
@@ -146,6 +163,7 @@ export type AppConfig = {
   listenHost: string;
   voice: VoiceConfig;
   llm: LlmConfig;
+  supabase?: SupabaseConfig;
 };
 
 export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
@@ -174,6 +192,8 @@ export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
     LLM_MODEL_ID: env.LLM_MODEL_ID,
     LLM_TIMEOUT_MS: env.LLM_TIMEOUT_MS,
     VOICE_SESSION_OWNER: env.VOICE_SESSION_OWNER,
+    SUPABASE_URL: env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
   });
 
   if (!parsed.success) {
@@ -185,6 +205,12 @@ export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
   const hasLlmKey = parsed.data.LLM_API_KEY !== undefined;
   if (hasLlmUrl !== hasLlmKey) {
     throw new ConfigError("Invalid configuration: LLM", "CONFIG_INVALID");
+  }
+
+  const hasSupabaseUrl = parsed.data.SUPABASE_URL !== undefined;
+  const hasSupabaseKey = parsed.data.SUPABASE_SERVICE_ROLE_KEY !== undefined;
+  if (hasSupabaseUrl !== hasSupabaseKey) {
+    throw new ConfigError("Invalid configuration: SUPABASE", "CONFIG_INVALID");
   }
 
   return {
@@ -222,5 +248,8 @@ export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
             timeoutMs: parsed.data.LLM_TIMEOUT_MS,
             modelId: parsed.data.LLM_MODEL_ID,
           },
+    ...(parsed.data.SUPABASE_URL !== undefined && parsed.data.SUPABASE_SERVICE_ROLE_KEY !== undefined
+      ? { supabase: { url: parsed.data.SUPABASE_URL, serviceRoleKey: parsed.data.SUPABASE_SERVICE_ROLE_KEY } }
+      : {}),
   };
 }

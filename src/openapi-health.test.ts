@@ -17,6 +17,8 @@ describe("health OpenAPI fragment", () => {
     expect(spec).toContain("enum: [false]");
     expect(spec).toContain("message:");
     expect(spec).toContain("code:");
-    expect(spec).not.toContain("/sessions");
+    expect(spec).toContain("/sessions");
+    expect(spec).toContain("/sessions/{sessionId}");
+    expect(spec).toContain("evaluation:");
   });
 });

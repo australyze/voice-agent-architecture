@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { LoggerPort } from "../../domain/ports/logger-port.js";
-import type { PersistencePort } from "../../domain/ports/persistence-port.js";
+import { MemoryPersistence } from "../persistence/memory-persistence.js";
 import { createServer } from "./create-server.js";
 
 describe("evaluation HTTP", () => {
   it("should_leave_canonical_evaluation_routes_unimplemented", async () => {
     const server = await createServer({
-      persistence: { async ping() {} } satisfies PersistencePort,
+      persistence: new MemoryPersistence(),
       logger: { log() {} } satisfies LoggerPort,
     });
     const created = await server.inject({

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { LoggerPort, LogEvent } from "../../domain/ports/logger-port.js";
-import type { PersistencePort } from "../../domain/ports/persistence-port.js";
+import { MemoryPersistence } from "../persistence/memory-persistence.js";
 import { defaultDemoReplyForLocale } from "../llm/fake-llm.js";
 import { FakeLlm } from "../llm/fake-llm.js";
 import { MemoryObservability } from "../observability/memory-observability.js";
@@ -19,8 +19,8 @@ function silentLogger(): LoggerPort & { events: LogEvent[] } {
   };
 }
 
-function readyPersistence(): PersistencePort {
-  return { async ping() {} };
+function readyPersistence() {
+  return new MemoryPersistence();
 }
 
 function validBody() {
@@ -99,6 +99,66 @@ describe("voice inbound HTTP", () => {
 
     expect(response.statusCode).toBe(400);
     expect(body.error.code).toBe("VOICE_PAYLOAD_INVALID");
+    await server.close();
+  });
+
+  it("should_accept_lifecycle_events_without_invoking_the_agent", async () => {
+    const persistence = new MemoryPersistence();
+    const llm = new FakeLlm();
+    const server = await createServer({
+      persistence,
+      logger: silentLogger(),
+      llm,
+      voice: { inboundSecret: "test-secret", timeoutMs: 2000, defaultLocale: "es" },
+    });
+    const complete = vi.spyOn(llm, "completeStructured");
+    const start = await server.inject({
+      method: "POST",
+      url: "/adapters/voice/inbound",
+      headers: { [VOICE_INBOUND_SECRET_HEADER]: "test-secret" },
+      payload: {
+        eventType: "call_started",
+        occurredAt: new Date().toISOString(),
+        externalChannelId: "call-1",
+        sessionId: "11111111-1111-4111-8111-111111111111",
+      },
+    });
+    const end = await server.inject({
+      method: "POST",
+      url: "/adapters/voice/inbound",
+      headers: { [VOICE_INBOUND_SECRET_HEADER]: "test-secret" },
+      payload: {
+        eventType: "call_ended",
+        occurredAt: new Date().toISOString(),
+        externalChannelId: "call-1",
+        sessionId: "11111111-1111-4111-8111-111111111111",
+      },
+    });
+    expect(start.statusCode).toBe(200);
+    expect(end.statusCode).toBe(200);
+    expect(complete).not.toHaveBeenCalled();
+    const report = await persistence.getSessionReport("11111111-1111-4111-8111-111111111111");
+    expect(report?.status).toBe("completed");
+    await server.close();
+  });
+
+  it("should_persist_transcript_turns_with_shared_correlation", async () => {
+    const persistence = new MemoryPersistence();
+    const server = await createServer({
+      persistence,
+      logger: silentLogger(),
+      voice: { inboundSecret: "test-secret", timeoutMs: 2000, defaultLocale: "es" },
+    });
+    const response = await server.inject({
+      method: "POST",
+      url: "/adapters/voice/inbound",
+      headers: { [VOICE_INBOUND_SECRET_HEADER]: "test-secret" },
+      payload: validBody(),
+    });
+    expect(response.statusCode).toBe(200);
+    const report = await persistence.getSessionReport("11111111-1111-4111-8111-111111111111");
+    expect(report?.transcript.map((turn) => turn.role)).toEqual(["user", "assistant"]);
+    expect(report?.traceId).toEqual(expect.any(String));
     await server.close();
   });
 

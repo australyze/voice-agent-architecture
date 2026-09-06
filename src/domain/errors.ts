@@ -33,6 +33,13 @@ export class VoiceBoundaryError extends AppError {
   }
 }
 
+export class NotFoundError extends AppError {
+  constructor(message = "Session not found", code = "SESSION_NOT_FOUND") {
+    super("internal", code, message);
+    this.name = "NotFoundError";
+  }
+}
+
 export class OrchestrationBoundaryError extends AppError {
   constructor(code: string, message: string) {
     super("internal", code, message);

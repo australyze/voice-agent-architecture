@@ -46,6 +46,8 @@ Required environment variables:
 | `LLM_API_KEY` | Required when `LLM_BASE_URL` is set. |
 | `LLM_MODEL_ID` | Optional. Default `fake`. |
 | `LLM_TIMEOUT_MS` | Optional model budget. Default `1500`. |
+| `SUPABASE_URL` | Optional hosted PostgreSQL (Supabase) URL. Backend only. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Optional service-role key. Required with `SUPABASE_URL`. Never put this in `web/.env`. |
 
 The process starts without voice or LLM credentials. Invalid *present* voice or LLM settings fail closed. See [docs/agents/runtime-demo.md](./docs/agents/runtime-demo.md).
 
@@ -67,6 +69,10 @@ Inbound voice (authenticated when configured):
 
 - `POST /adapters/voice/inbound` — simulator/Vapi-facing adapter. Not `/ingress/interaction`. Still `runtime-demo` only.
 - `POST /demo/orchestrate` — closed-intent multi-agent demo (`normalize` \| `classify`). Send `x-demo-orchestrate-secret` when `DEMO_ORCHESTRATE_SECRET` or `VOICE_INBOUND_SECRET` is set. See [docs/agents/runtime-orchestrator.md](docs/agents/runtime-orchestrator.md).
+- `GET /sessions` — recent persisted voice sessions (requires `x-demo-orchestrate-secret`)
+- `GET /sessions/{sessionId}` — session report (`evaluation` is reserved/null for HU #012; same secret)
+
+Session history setup: [docs/persistence.md](./docs/persistence.md).
 
 The process listens on `LISTEN_HOST` (default `127.0.0.1`). Probe from this machine unless you opted into a different bind.
 
