@@ -2,11 +2,12 @@ openapi: 3.0.3
 info:
   title: AI Agent Runtime Health API
   description: |
-    Operational health probes and the inbound voice adapter surface.
+    Operational health probes, inbound voice, and the demo orchestrate surface.
     Canonical product session and /ingress/interaction contracts remain in
     lidr-specboot/docs/api-spec.yml. The Vapi-facing URL is
     POST /adapters/voice/inbound, not /ingress/interaction.
-  version: 0.2.0
+    Multi-agent demo ingress is POST /demo/orchestrate.
+  version: 0.3.0
 servers:
   - url: http://localhost:3000
     description: Local development
@@ -85,6 +86,46 @@ paths:
           $ref: "#/components/responses/Error"
         "500":
           $ref: "#/components/responses/Error"
+  /demo/orchestrate:
+    post:
+      summary: Route a demo request through the orchestrator
+      description: Closed-intent demo path. When DEMO_ORCHESTRATE_SECRET or VOICE_INBOUND_SECRET is set, send x-demo-orchestrate-secret. Body limit 16KiB. Failures use the canonical envelope (unroutable, invalid_output, unauthorized, payload_invalid, and related codes).
+      operationId: orchestrateDemoTurn
+      parameters:
+        - in: header
+          name: x-demo-orchestrate-secret
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrchestrateRequest"
+      responses:
+        "200":
+          description: Structured specialist result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrchestrateSuccess"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        "502":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+        "504":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
 components:
   responses:
     Error:
@@ -144,6 +185,41 @@ components:
           type: string
           format: uuid
           maxLength: 36
+    OrchestrateRequest:
+      type: object
+      required: [userText, intent]
+      properties:
+        userText:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        intent:
+          type: string
+          enum: [normalize, classify]
+        locale:
+          type: string
+        sessionId:
+          type: string
+          format: uuid
+          maxLength: 36
+    OrchestrateSuccess:
+      type: object
+      required: [sessionId, intent, specialistId, replyText]
+      properties:
+        sessionId:
+          type: string
+        intent:
+          type: string
+          enum: [normalize, classify]
+        specialistId:
+          type: string
+          enum: [demo-normalize, demo-classify]
+        replyText:
+          type: string
+        normalizedText:
+          type: string
+        label:
+          type: string
     VoiceConsumerReply:
       type: object
       required: [message, locale, status]

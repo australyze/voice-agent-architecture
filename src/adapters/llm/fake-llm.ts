@@ -17,9 +17,12 @@ export const FAKE_MODEL_ID = DEFAULT_FAKE_MODEL_ID;
 export type FakeLlmStep =
   | { kind: "reply"; replyText: string }
   | { kind: "tool"; toolName: string; arguments: Record<string, unknown> }
+  | { kind: "specialist-normalize"; replyText: string; normalizedText: string }
+  | { kind: "specialist-classify"; replyText: string; label: string }
   | { kind: "garbage" }
   | { kind: "delay"; ms: number; next: FakeLlmStep }
-  | { kind: "provider-error" };
+  | { kind: "provider-error" }
+  | { kind: "unexpected-error" };
 
 export class FakeLlm implements LlmPort {
   readonly modelId = FAKE_MODEL_ID;
@@ -69,12 +72,18 @@ export class FakeLlm implements LlmPort {
         ? { notADecision: true }
         : decision.kind === "reply"
           ? { type: "reply", replyText: decision.replyText }
-          : { type: "tool", toolName: decision.toolName, arguments: decision.arguments }
+          : decision.kind === "specialist-normalize"
+            ? { replyText: decision.replyText, normalizedText: decision.normalizedText }
+            : decision.kind === "specialist-classify"
+              ? { replyText: decision.replyText, label: decision.label }
+              : { type: "tool", toolName: decision.toolName, arguments: decision.arguments }
     ) as T;
     return this.usage === undefined ? { output } : { output, usage: this.usage };
   }
 
-  private async nextDecision(): Promise<Exclude<FakeLlmStep, { kind: "delay" } | { kind: "provider-error" }>> {
+  private async nextDecision(): Promise<
+    Exclude<FakeLlmStep, { kind: "delay" } | { kind: "provider-error" } | { kind: "unexpected-error" }>
+  > {
     const step = this.queue.shift() ?? { kind: "reply" as const, replyText: "Listo. Completé este turno." };
     if (step.kind === "delay") {
       await new Promise((resolve) => setTimeout(resolve, step.ms));
@@ -83,15 +92,23 @@ export class FakeLlm implements LlmPort {
     if (step.kind === "provider-error") {
       throw Object.assign(new Error("LLM provider failed"), { code: "llm_provider" });
     }
+    if (step.kind === "unexpected-error") {
+      throw new Error("unexpected specialist boom");
+    }
     return step;
   }
 
-  private unwrap(step: FakeLlmStep): Exclude<FakeLlmStep, { kind: "delay" } | { kind: "provider-error" }> {
+  private unwrap(
+    step: FakeLlmStep,
+  ): Exclude<FakeLlmStep, { kind: "delay" } | { kind: "provider-error" } | { kind: "unexpected-error" }> {
     if (step.kind === "delay") {
       return this.unwrap(step.next);
     }
     if (step.kind === "provider-error") {
       throw Object.assign(new Error("LLM provider failed"), { code: "llm_provider" });
+    }
+    if (step.kind === "unexpected-error") {
+      throw new Error("unexpected specialist boom");
     }
     return step;
   }

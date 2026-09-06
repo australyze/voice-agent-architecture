@@ -8,7 +8,7 @@ Defines the first single-turn demo conversational agent owned by the application
 
 ### Requirement: One runtime-owned demo agent executes a single turn
 
-The application MUST expose one demo agent identity (`runtime-demo`) with an explicit `AgentVersion` policy: allowlisted tools, `maxToolHops` of `1`, and a latency budget no looser than the configured voice-turn handling timeout. The agent MUST be the session owner for user-facing reply text. The change MUST NOT introduce a second agent, supervisor, or typed handoff.
+The application MUST expose demo agent identity `runtime-demo` with an explicit `AgentVersion` policy: allowlisted tools, `maxToolHops` of `1`, and a latency budget no looser than the configured voice-turn handling timeout. On the `runtime-demo` path the agent MUST be the session owner for user-facing reply text. The `runtime-demo` path MUST NOT introduce a supervisor or typed specialist handoff. A separate orchestrated catalog MAY exist and MUST NOT be invoked from this path.
 
 #### Scenario: Happy path without a tool
 
@@ -22,8 +22,8 @@ The application MUST expose one demo agent identity (`runtime-demo`) with an exp
 
 #### Scenario: No second agent
 
-- **WHEN** a reviewer inspects this increment’s agent policy
-- **THEN** only `runtime-demo` is defined and there is no specialist or supervisor agent
+- **WHEN** a reviewer inspects the `runtime-demo` turn policy
+- **THEN** that path defines only `runtime-demo` as session owner and does not invoke `demo-normalize`, `demo-classify`, or `runtime-orchestrator`
 
 ### Requirement: Turn states are explicit and in-memory
 
@@ -79,7 +79,7 @@ The demo agent MUST use a versioned prompt artifact identified by `promptId` `ru
 
 ### Requirement: Retrieved context arrives before generation
 
-On each `runtime-demo` turn the runtime MUST retrieve against the current user text, assemble above-threshold hits, and supply that context to the model **before** the first structured completion. Retrieval is a runtime step, not a model-invoked tool. The change MUST NOT introduce a second agent or a RAG specialist.
+On each `runtime-demo` turn the runtime MUST retrieve against the current user text, assemble above-threshold hits, and supply that context to the model **before** the first structured completion. Retrieval is a runtime step, not a model-invoked tool. The `runtime-demo` path MUST NOT introduce a second agent or a RAG specialist on that path.
 
 #### Scenario: First model call sees assembled hits
 

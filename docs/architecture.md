@@ -13,9 +13,9 @@ Domain = Provider Independent
 ```text
 src/
   domain/           # errors, ports, VoiceTurn — no frameworks, drivers, or vendor SDKs
-  application/      # config, health, handleVoiceTurn, handleAgentTurn, error mapping
+  application/      # config, health, handleVoiceTurn, handleAgentTurn, handleOrchestratedTurn, error mapping
   adapters/
-    http/           # health + inbound route wiring
+    http/           # health + inbound + demo orchestrate route wiring
     voice/          # Vapi/simulator translation only
     llm/            # fake + optional HTTP completions adapter; `embed` is lexical offline
     tools/          # product registry (demo.normalize_text); test-only demo.echo_token off the product catalog

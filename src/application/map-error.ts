@@ -1,5 +1,6 @@
 import type { ErrorEnvelope } from "../domain/error-envelope.js";
 import { AppError } from "../domain/errors.js";
+import { isOrchestrationErrorCode } from "../domain/orchestration.js";
 import { VOICE_ERROR_CODES, isVoiceErrorCode } from "../domain/voice.js";
 import { redactSecrets } from "../domain/redact.js";
 
@@ -21,9 +22,27 @@ const VOICE_STATUS: Record<string, number> = {
   [VOICE_ERROR_CODES.RATE_LIMITED]: 429,
 };
 
+const ORCHESTRATION_STATUS: Record<string, number> = {
+  unroutable: 400,
+  invalid_output: 400,
+  payload_invalid: 400,
+  session_invalid: 400,
+  unauthorized: 401,
+  budget_exceeded: 429,
+  rate_limited: 429,
+  llm_timeout: 504,
+  llm_provider: 502,
+  specialist_failed: 500,
+  sensitive_output: 500,
+  orchestration_config: 503,
+};
+
 export function statusCodeForErrorCode(code: string): number {
   if (code in VOICE_STATUS) {
     return VOICE_STATUS[code] ?? 500;
+  }
+  if (code in ORCHESTRATION_STATUS) {
+    return ORCHESTRATION_STATUS[code] ?? 500;
   }
   return 500;
 }
@@ -31,7 +50,7 @@ export function statusCodeForErrorCode(code: string): number {
 export function mapErrorToEnvelope(error: unknown): MappedError {
   if (error instanceof AppError) {
     const statusCode =
-      isVoiceErrorCode(error.code)
+      isVoiceErrorCode(error.code) || isOrchestrationErrorCode(error.code)
         ? statusCodeForErrorCode(error.code)
         : error.kind === "dependency"
           ? 503

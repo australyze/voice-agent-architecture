@@ -9,7 +9,10 @@ describe("health OpenAPI fragment", () => {
     expect(spec).toContain("/health/ready");
     expect(spec).toContain("/health/voice");
     expect(spec).toContain("/adapters/voice/inbound");
+    expect(spec).toContain("/demo/orchestrate");
+    expect(spec).toContain("unroutable");
     expect(spec).toContain("x-voice-inbound-secret");
+    expect(spec).toContain("x-demo-orchestrate-secret");
     expect(spec).toContain("success:");
     expect(spec).toContain("enum: [false]");
     expect(spec).toContain("message:");

@@ -2,7 +2,7 @@
 
 Implementing repository for an AI Agent Runtime. Methodology lives in `lidr-specboot/`. OpenSpec changes live in `openspec/`.
 
-This repository is a bootable hexagonal AI Agent Runtime plus an inbound voice channel adapter. Vapi is an interaction adapter, not the runtime. A valid inbound turn runs the `runtime-demo` agent (mocked LLM in CI) and returns a structured reply.
+This repository is a bootable hexagonal AI Agent Runtime plus an inbound voice channel adapter. Vapi is an interaction adapter, not the runtime. A valid inbound turn runs the `runtime-demo` agent (mocked LLM in CI) and returns a structured reply. A separate demo path `POST /demo/orchestrate` routes a closed intent to `demo-normalize` or `demo-classify` under `runtime-orchestrator`.
 
 Architecture decisions that bind later components: [docs/architecture.md](./docs/architecture.md).
 
@@ -65,7 +65,8 @@ Health probes (unauthenticated by design; they return only alive/ready/voice sta
 
 Inbound voice (authenticated when configured):
 
-- `POST /adapters/voice/inbound` — simulator/Vapi-facing adapter. Not `/ingress/interaction`.
+- `POST /adapters/voice/inbound` — simulator/Vapi-facing adapter. Not `/ingress/interaction`. Still `runtime-demo` only.
+- `POST /demo/orchestrate` — closed-intent multi-agent demo (`normalize` \| `classify`). Send `x-demo-orchestrate-secret` when `DEMO_ORCHESTRATE_SECRET` or `VOICE_INBOUND_SECRET` is set. See [docs/agents/runtime-orchestrator.md](docs/agents/runtime-orchestrator.md).
 
 The process listens on `LISTEN_HOST` (default `127.0.0.1`). Probe from this machine unless you opted into a different bind.
 

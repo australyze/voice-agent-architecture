@@ -32,3 +32,10 @@ export class VoiceBoundaryError extends AppError {
     this.name = "VoiceBoundaryError";
   }
 }
+
+export class OrchestrationBoundaryError extends AppError {
+  constructor(code: string, message: string) {
+    super("internal", code, message);
+    this.name = "OrchestrationBoundaryError";
+  }
+}
