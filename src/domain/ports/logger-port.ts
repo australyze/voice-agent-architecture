@@ -8,8 +8,16 @@ export type LogEvent = {
   sessionId?: string;
   requestId?: string;
   interactionId?: string;
+  traceId?: string;
+  spanKind?: string;
+  spanName?: string;
   eventType?: string;
+  occurredAt?: string;
   processingTimeMs?: number;
+  latencyMs?: number;
+  tokenInput?: number;
+  tokenOutput?: number;
+  cost?: number;
   status?: string;
 };
 

@@ -3,6 +3,7 @@ import type { LoggerPort, LogEvent } from "../../domain/ports/logger-port.js";
 import type { PersistencePort } from "../../domain/ports/persistence-port.js";
 import { defaultDemoReplyForLocale } from "../llm/fake-llm.js";
 import { FakeLlm } from "../llm/fake-llm.js";
+import { MemoryObservability } from "../observability/memory-observability.js";
 import { createServer } from "./create-server.js";
 import { INBOUND_BODY_LIMIT_BYTES, VOICE_INBOUND_SECRET_HEADER } from "../voice/inbound.js";
 
@@ -282,6 +283,39 @@ describe("voice inbound HTTP", () => {
     expect(logger.events.some((event) => event.operation === "trace.tool")).toBe(true);
     expect(JSON.stringify(logger.events)).not.toContain("SecretUserPhrase");
     expect(JSON.stringify(logger.events)).not.toContain("normalizedText");
+    await server.close();
+  });
+
+  it("should_emit_distinguishable_spans_sharing_one_trace_id_on_tool_hop", async () => {
+    const observability = new MemoryObservability();
+    const server = await createServer({
+      persistence: readyPersistence(),
+      logger: silentLogger(),
+      voice: { inboundSecret: "test-secret", timeoutMs: 2000, defaultLocale: "es" },
+      observability,
+      llm: new FakeLlm([
+        { kind: "tool", toolName: "demo.normalize_text", arguments: { text: "hola" } },
+        { kind: "reply", replyText: "ok" },
+      ]),
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/adapters/voice/inbound",
+      headers: { [VOICE_INBOUND_SECRET_HEADER]: "test-secret" },
+      payload: validBody(),
+    });
+
+    expect(response.statusCode).toBe(200);
+    const kinds = new Set(observability.spans.map((span) => span.kind));
+    expect(kinds.has("http")).toBe(true);
+    expect(kinds.has("workflow")).toBe(true);
+    expect(kinds.has("retrieval")).toBe(true);
+    expect(kinds.has("llm")).toBe(true);
+    expect(kinds.has("tool")).toBe(true);
+    const traceIds = new Set(observability.spans.map((span) => span.traceId));
+    expect(traceIds.size).toBe(1);
+    expect(JSON.stringify(observability.spans)).not.toContain("sk-");
     await server.close();
   });
 });

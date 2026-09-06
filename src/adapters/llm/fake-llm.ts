@@ -6,6 +6,8 @@ import type {
   LlmMessage,
   LlmPort,
   LlmStructuredRequest,
+  LlmStructuredResult,
+  LlmUsage,
 } from "../../domain/ports/llm-port.js";
 import { DEFAULT_FAKE_MODEL_ID } from "../../domain/demo-tool.js";
 import { FAKE_EMBED_MODEL_ID, FAKE_EMBED_MODEL_VERSION, lexicalEmbed } from "../../domain/knowledge.js";
@@ -24,9 +26,14 @@ export class FakeLlm implements LlmPort {
   readonly packedInputs: string[] = [];
   readonly structuredMessages: LlmMessage[][] = [];
   private readonly queue: FakeLlmStep[];
+  private readonly usage: LlmUsage | undefined;
 
-  constructor(script: FakeLlmStep[] = [{ kind: "reply", replyText: "Listo. Completé este turno." }]) {
+  constructor(
+    script: FakeLlmStep[] = [{ kind: "reply", replyText: "Listo. Completé este turno." }],
+    usage?: LlmUsage,
+  ) {
     this.queue = [...script];
+    this.usage = usage;
   }
 
   async complete(request: LlmCompleteRequest): Promise<LlmCompleteResult> {
@@ -51,23 +58,20 @@ export class FakeLlm implements LlmPort {
     };
   }
 
-  async completeStructured<T>(_request: LlmStructuredRequest<unknown>): Promise<T> {
+  async completeStructured<T>(_request: LlmStructuredRequest<unknown>): Promise<LlmStructuredResult<T>> {
     this.packedInputs.push(_request.input);
     if (_request.messages !== undefined) {
       this.structuredMessages.push(_request.messages);
     }
     const decision = await this.nextDecision();
-    if (decision.kind === "garbage") {
-      return { notADecision: true } as T;
-    }
-    if (decision.kind === "reply") {
-      return { type: "reply", replyText: decision.replyText } as T;
-    }
-    return {
-      type: "tool",
-      toolName: decision.toolName,
-      arguments: decision.arguments,
-    } as T;
+    const output = (
+      decision.kind === "garbage"
+        ? { notADecision: true }
+        : decision.kind === "reply"
+          ? { type: "reply", replyText: decision.replyText }
+          : { type: "tool", toolName: decision.toolName, arguments: decision.arguments }
+    ) as T;
+    return this.usage === undefined ? { output } : { output, usage: this.usage };
   }
 
   private async nextDecision(): Promise<Exclude<FakeLlmStep, { kind: "delay" } | { kind: "provider-error" }>> {

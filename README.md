@@ -89,7 +89,16 @@ Configured example (put the secret only in `.env`):
 curl -s -X POST http://127.0.0.1:3000/adapters/voice/inbound -H "content-type: application/json" -H "x-voice-inbound-secret: YOUR_SECRET" -d "{\"eventType\":\"transcript\",\"occurredAt\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",\"inputText\":\"hola\",\"sessionId\":\"11111111-1111-4111-8111-111111111111\"}"
 ```
 
-Logs are JSON lines. Successful turns use `operation=voice.turn` with correlation ids, `eventType`, `processingTimeMs`, and `status`. Secrets and raw utterances are not logged.
+Logs are JSON lines. No observability vendor is required.
+
+Join one execution by **`traceId`** (server-generated). Caller `requestId` / `interactionId` are untrusted join keys.
+
+- `operation=voice.turn` — inbound voice handling (session / request / interaction ids when valid, `eventType`, `occurredAt`, `processingTimeMs`, `status`, `traceId`)
+- `operation=trace.http` — inbound request span (`spanKind=http`, latency, status)
+- `operation=trace.workflow` — agent turn (`spanName=agent.turn`)
+- `operation=trace.retrieval` | `trace.llm` | `trace.tool` — child steps (`spanName`, latency, status)
+
+LLM lines include `tokenInput` / `tokenOutput` / `cost` only when the model path reports them. Default emit is metadata only: no raw utterances, tool argument values, retrieved chunk bodies, or secrets. Retrieval spans on the port carry a bounded `queryHash`, not query text. Health routes are not traced as parent spans. Adding a collecting or vendor observability adapter needs its own review.
 
 ### Optional live Vapi smoke
 

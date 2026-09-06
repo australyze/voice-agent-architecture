@@ -8,6 +8,7 @@ import type {
   LlmMessage,
   LlmPort,
   LlmStructuredRequest,
+  LlmStructuredResult,
 } from "../../domain/ports/llm-port.js";
 
 export const DEFAULT_HTTP_LLM_TIMEOUT_MS = 1500;
@@ -47,10 +48,10 @@ export class HttpLlm implements LlmPort {
     };
   }
 
-  async completeStructured<T>(request: LlmStructuredRequest<unknown>): Promise<T> {
+  async completeStructured<T>(request: LlmStructuredRequest<unknown>): Promise<LlmStructuredResult<T>> {
     const text = await this.post(request.input, request.modelId, request.messages);
     try {
-      return JSON.parse(text) as T;
+      return { output: JSON.parse(text) as T };
     } catch {
       throw Object.assign(new Error("invalid structured output"), { code: AGENT_ERROR_CODES.INVALID_OUTPUT });
     }

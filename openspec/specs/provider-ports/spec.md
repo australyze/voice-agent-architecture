@@ -114,6 +114,20 @@ When the optional HTTP LLM adapter performs a model call, it MUST send the appli
 - **WHEN** the model time budget elapses during an HTTP completion
 - **THEN** the adapter aborts the in-flight request and maps the outcome to a typed LLM timeout or provider failure
 
+### Requirement: Observability span contract carries correlation and metrics
+
+The observability port MUST accept a span that includes name, kind (`llm` | `tool` | `retrieval` | `http` | `workflow` | `voice`), status (`ok` | `error`), `traceId`, latency, and optional session, request, interaction, and parent identifiers. Optional fields MUST include prompt id and version, model id, tool name and source, redacted arguments, bounded results, validation outcome, error class, retrieval versions, token counts, estimated cost, and retry count. Domain and application MUST NOT import an observability vendor type to populate those fields.
+
+#### Scenario: Port accepts a reconstructable LLM span
+
+- **WHEN** application code emits an LLM span with `traceId`, parent identifier, latency, status, and optional token counts
+- **THEN** the observability port accepts that span without requiring a vendor SDK type
+
+#### Scenario: Future platform adapter uses the same port
+
+- **WHEN** a later change adds an observability-platform adapter
+- **THEN** it MUST implement the existing observability port without changing domain span shapes
+
 ### Requirement: Future high-risk actions require human confirmation
 
 The runtime MUST NOT execute irreversible or externally visible business actions. A read-only native demo tool is allowed. Changes that introduce `write`, `irreversible`, or `external_comm` risk MUST require confirmation or approval before side effects.

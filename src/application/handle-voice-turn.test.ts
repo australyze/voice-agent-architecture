@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { defaultDemoReplyForLocale } from "../adapters/llm/fake-llm.js";
+import { MemoryObservability } from "../adapters/observability/memory-observability.js";
 import { AGENT_ERROR_CODES } from "../domain/agent.js";
 import type { LoggerPort, LogEvent } from "../domain/ports/logger-port.js";
 import { VOICE_ERROR_CODES, type VoiceTurn } from "../domain/voice.js";
@@ -38,6 +39,7 @@ describe("handleVoiceTurn", () => {
       replyText,
       locale: "es",
       status: "ok" as const,
+      sources: [],
     }));
 
     const first = await handleVoiceTurn(validTurn(), { locale: "es", timeoutMs: 2000, logger, runAgent });
@@ -66,6 +68,7 @@ describe("handleVoiceTurn", () => {
         replyText: defaultDemoReplyForLocale("es"),
         locale: "es",
         status: "ok",
+        sources: [],
       }),
     });
 
@@ -135,6 +138,7 @@ describe("handleVoiceTurn", () => {
         replyText: defaultDemoReplyForLocale("es"),
         locale: "es",
         status: "ok",
+        sources: [],
       }),
     });
     expect(result.ok).toBe(true);
@@ -190,6 +194,7 @@ describe("handleVoiceTurn", () => {
         replyText: defaultDemoReplyForLocale("es"),
         locale: "es",
         status: "ok",
+        sources: [],
       }),
     });
     await handleVoiceTurn(validTurn({ sessionId: "bad" }), { locale: "es", timeoutMs: 2000, logger });
@@ -202,6 +207,7 @@ describe("handleVoiceTurn", () => {
       interactionId: turn.interactionId,
       eventType: turn.eventType,
       status: "success",
+      occurredAt: turn.occurredAt.toISOString(),
     });
     expect(logger.events[0]?.processingTimeMs).toEqual(expect.any(Number));
     expect(JSON.stringify(logger.events)).not.toContain("hola");
@@ -212,9 +218,58 @@ describe("handleVoiceTurn", () => {
       outcome: "failure",
       errorCode: VOICE_ERROR_CODES.SESSION_INVALID,
       status: "failure",
+      occurredAt: expect.any(String),
     });
     expect(logger.events[1]?.sessionId).toBeUndefined();
     expect(JSON.stringify(logger.events[1])).not.toContain("bad");
+  });
+
+  it("should_assign_trace_id_on_logs_and_http_span_including_session_invalid", async () => {
+    const logger = memoryLogger();
+    const observability = new MemoryObservability();
+    const turn = validTurn();
+    await handleVoiceTurn(turn, {
+      locale: "es",
+      timeoutMs: 2000,
+      logger,
+      observability,
+      runAgent: async () => ({
+        ok: true,
+        replyText: defaultDemoReplyForLocale("es"),
+        locale: "es",
+        status: "ok",
+        sources: [],
+      }),
+    });
+    await handleVoiceTurn(validTurn({ sessionId: "bad" }), { locale: "es", timeoutMs: 2000, logger, observability });
+
+    const successLog = logger.events[0];
+    const failureLog = logger.events[1];
+    const successSpan = observability.spans[0];
+    const failureSpan = observability.spans[1];
+    expect(successLog?.traceId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(successSpan).toMatchObject({
+      kind: "http",
+      name: "http.voice.inbound",
+      status: "ok",
+      traceId: successLog?.traceId,
+      sessionId: turn.sessionId,
+      requestId: turn.requestId,
+      interactionId: turn.interactionId,
+    });
+    expect(successSpan?.latencyMs).toEqual(expect.any(Number));
+    expect(failureLog?.traceId).toEqual(expect.any(String));
+    expect(failureSpan).toMatchObject({
+      kind: "http",
+      status: "error",
+      errorCode: VOICE_ERROR_CODES.SESSION_INVALID,
+      traceId: failureLog?.traceId,
+    });
+    expect(failureSpan?.sessionId).toBeUndefined();
+    expect(JSON.stringify(failureLog)).not.toContain("bad");
+    expect(JSON.stringify(failureSpan)).not.toContain("bad");
   });
 
   it("should_not_emit_unhandled_rejection_when_turn_finishes_before_timeout", async () => {
@@ -234,6 +289,7 @@ describe("handleVoiceTurn", () => {
         replyText: defaultDemoReplyForLocale("es"),
         locale: "es",
         status: "ok",
+        sources: [],
       }),
     });
     await new Promise((resolve) => setTimeout(resolve, 60));

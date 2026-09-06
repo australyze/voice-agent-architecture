@@ -1,14 +1,21 @@
+import { randomUUID } from "node:crypto";
 import { AGENT_ERROR_CODES, type AgentTurnResult } from "../domain/agent.js";
 import { VOICE_ERROR_CODES, type VoiceTurn, type VoiceTurnResult } from "../domain/voice.js";
 import type { LoggerPort } from "../domain/ports/logger-port.js";
+import type { ObservabilityPort } from "../domain/ports/observability-port.js";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export type VoiceTurnCorrelation = {
+  traceId: string;
+};
 
 export type HandleVoiceTurnOptions = {
   locale: string;
   timeoutMs: number;
   logger: LoggerPort;
-  runAgent?: (turn: VoiceTurn) => Promise<AgentTurnResult>;
+  observability?: ObservabilityPort;
+  runAgent?: (turn: VoiceTurn, correlation: VoiceTurnCorrelation) => Promise<AgentTurnResult>;
   work?: (turn: VoiceTurn) => Promise<void>;
 };
 
@@ -32,10 +39,22 @@ function mapAgentFailure(code: string): VoiceTurnResult {
 export async function handleVoiceTurn(turn: VoiceTurn, options: HandleVoiceTurnOptions): Promise<VoiceTurnResult> {
   const started = Date.now();
   const locale = turn.locale ?? options.locale;
+  const traceId = randomUUID();
 
   const finish = (result: VoiceTurnResult): VoiceTurnResult => {
     const processingTimeMs = Date.now() - started;
     const sessionId = isUuid(turn.sessionId) ? turn.sessionId : undefined;
+    options.observability?.emit({
+      name: "http.voice.inbound",
+      kind: "http",
+      status: result.ok ? "ok" : "error",
+      traceId,
+      latencyMs: processingTimeMs,
+      ...(sessionId === undefined ? {} : { sessionId }),
+      ...(turn.requestId === undefined ? {} : { requestId: turn.requestId }),
+      ...(turn.interactionId === undefined ? {} : { interactionId: turn.interactionId }),
+      ...(result.ok ? {} : { errorCode: result.error.code }),
+    });
     if (result.ok) {
       options.logger.log({
         operation: "voice.turn",
@@ -43,6 +62,8 @@ export async function handleVoiceTurn(turn: VoiceTurn, options: HandleVoiceTurnO
         eventType: turn.eventType,
         processingTimeMs,
         status: "success",
+        traceId,
+        occurredAt: turn.occurredAt.toISOString(),
         ...(sessionId === undefined ? {} : { sessionId }),
         ...(turn.requestId === undefined ? {} : { requestId: turn.requestId }),
         ...(turn.interactionId === undefined ? {} : { interactionId: turn.interactionId }),
@@ -57,6 +78,8 @@ export async function handleVoiceTurn(turn: VoiceTurn, options: HandleVoiceTurnO
       processingTimeMs,
       status: "failure",
       errorCode: result.error.code,
+      traceId,
+      occurredAt: turn.occurredAt.toISOString(),
       ...(sessionId === undefined ? {} : { sessionId }),
       ...(turn.requestId === undefined ? {} : { requestId: turn.requestId }),
       ...(turn.interactionId === undefined ? {} : { interactionId: turn.interactionId }),
@@ -80,7 +103,7 @@ export async function handleVoiceTurn(turn: VoiceTurn, options: HandleVoiceTurnO
 
   try {
     if (options.runAgent !== undefined) {
-      const agentResult = await Promise.race([options.runAgent(turn), timeout]);
+      const agentResult = await Promise.race([options.runAgent(turn, { traceId }), timeout]);
       if (!agentResult.ok) {
         return finish(mapAgentFailure(agentResult.error.code));
       }

@@ -40,4 +40,18 @@ describe("dependency allowlist", () => {
       expect(lockfile.includes(`"${name}"`), `${name} must not appear in package-lock.json`).toBe(false);
     }
   });
+
+  it("should_not_declare_observability_vendor_sdks", () => {
+    const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const declared = {
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies,
+    };
+    for (const name of ["langfuse", "@opentelemetry/sdk-node", "dd-trace"]) {
+      expect(declared[name], `${name} must not be a direct dependency`).toBeUndefined();
+    }
+  });
 });
