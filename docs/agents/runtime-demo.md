@@ -87,6 +87,8 @@ Default **product** composition registers only this tool and passes the product 
 
 Voice mapping: `llm_timeout` and `tool_timeout` → `VOICE_TIMEOUT`. All other agent failures → `VOICE_RUNTIME`. Adapter-facing messages never include raw model JSON or secrets.
 
+Inbound default remains this agent. `VOICE_SESSION_OWNER=wom-customer-service-agent` selects the simulated WOM agent instead; see [wom-customer-service-agent.md](./wom-customer-service-agent.md).
+
 Tool spans include `source`, argument validation outcome, and redacted args. They must not retain `normalizedText` or `echoedToken`.
 
 ## Tests and eval

@@ -8,7 +8,7 @@ Defines the first single-turn demo conversational agent owned by the application
 
 ### Requirement: One runtime-owned demo agent executes a single turn
 
-The application MUST expose demo agent identity `runtime-demo` with an explicit `AgentVersion` policy: allowlisted tools, `maxToolHops` of `1`, and a latency budget no looser than the configured voice-turn handling timeout. On the `runtime-demo` path the agent MUST be the session owner for user-facing reply text. The `runtime-demo` path MUST NOT introduce a supervisor or typed specialist handoff. A separate orchestrated catalog MAY exist and MUST NOT be invoked from this path.
+The application MUST expose demo agent identity `runtime-demo` with an explicit `AgentVersion` policy: allowlisted tools, `maxToolHops` of `1`, and a latency budget no looser than the configured voice-turn handling timeout. On the `runtime-demo` path the agent MUST be the session owner for user-facing reply text. The `runtime-demo` path MUST NOT introduce a supervisor or typed specialist handoff. A separate orchestrated catalog MAY exist and MUST NOT be invoked from this path. A separate product session owner `wom-customer-service-agent` MAY exist and MUST NOT be invoked from the `runtime-demo` path.
 
 #### Scenario: Happy path without a tool
 
@@ -23,7 +23,7 @@ The application MUST expose demo agent identity `runtime-demo` with an explicit 
 #### Scenario: No second agent
 
 - **WHEN** a reviewer inspects the `runtime-demo` turn policy
-- **THEN** that path defines only `runtime-demo` as session owner and does not invoke `demo-normalize`, `demo-classify`, or `runtime-orchestrator`
+- **THEN** that path defines only `runtime-demo` as session owner and does not invoke `demo-normalize`, `demo-classify`, `runtime-orchestrator`, or `wom-customer-service-agent`
 
 ### Requirement: Turn states are explicit and in-memory
 

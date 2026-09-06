@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { hashPromptContent, loadDemoClassifyPrompt, loadDemoNormalizePrompt, loadRuntimeDemoPrompt } from "./load-prompt.js";
+import {
+  hashPromptContent,
+  loadDemoClassifyPrompt,
+  loadDemoNormalizePrompt,
+  loadRuntimeDemoPrompt,
+  loadWomCustomerServicePrompt,
+} from "./load-prompt.js";
 
 describe("runtime-demo prompt version", () => {
   it("should_load_prompt_id_version_and_matching_content_hash", () => {
@@ -32,5 +38,21 @@ describe("specialist prompt versions", () => {
     expect(classify.hash).toBe(hashPromptContent(classify.content));
     expect(normalize.content).toContain("untrusted");
     expect(classify.content).toContain("untrusted");
+  });
+});
+
+describe("wom-customer-service-agent prompt version", () => {
+  it("should_load_prompt_id_version_and_matching_content_hash", () => {
+    const prompt = loadWomCustomerServicePrompt();
+    expect(prompt.promptId).toBe("wom-customer-service-agent");
+    expect(prompt.version).toBe("1");
+    expect(prompt.path).toContain("v1.md");
+    expect(prompt.content).toContain("demonstration");
+    expect(prompt.hash).toBe(hashPromptContent(prompt.content));
+  });
+
+  it("should_fail_when_expected_hash_does_not_match_file_bytes", () => {
+    const prompt = loadWomCustomerServicePrompt();
+    expect(prompt.hash).not.toBe(hashPromptContent(`${prompt.content}\nchanged`));
   });
 });

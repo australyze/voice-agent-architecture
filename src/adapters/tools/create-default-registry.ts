@@ -6,6 +6,8 @@ import {
   DEMO_TOOL_TIMEOUT_MS,
   MAX_TOOL_STRING_CHARS,
 } from "../../domain/demo-tool.js";
+import type { WomDirectory } from "../../domain/wom-tools.js";
+import { registerWomTools } from "./register-wom-tools.js";
 
 const normalizeInput = z.object({ text: z.string().max(MAX_TOOL_STRING_CHARS) }).strict();
 const normalizeOutput = z.object({ normalizedText: z.string().max(MAX_TOOL_STRING_CHARS) }).strict();
@@ -29,9 +31,10 @@ function registerNormalize(registry: ToolRegistry): void {
   });
 }
 
-export function createProductToolRegistry(): ToolRegistry {
+export function createProductToolRegistry(directory?: WomDirectory): ToolRegistry {
   const registry = new ToolRegistry();
   registerNormalize(registry);
+  registerWomTools(registry, directory);
   return registry;
 }
 
