@@ -20,9 +20,11 @@ src/
     llm/            # fake + optional HTTP completions adapter; `embed` is lexical offline
     tools/          # product registry (demo.normalize_text); test-only demo.echo_token off the product catalog
     retrieval/      # in-memory cosine store (default); port-swappable
+    eval/           # suite runners for the quality gate (fakes only)
     persistence/    # PostgreSQL driver
     logging/        # structured JSON logger
   composition/      # process wiring
+eval/               # frozen cases + quality-gate baseline
 ```
 
 Dependencies point inward. Replacing a voice, LLM, store, or observability vendor must not rewrite domain or application use cases.
@@ -35,9 +37,10 @@ Dependencies point inward. Replacing a voice, LLM, store, or observability vendo
 | Speech | `transcribe`, `synthesize` | Interface only — unused on the inbound text path |
 | Tools | authorize + execute | In-process registry; product `demo.normalize_text` (`read`, `native`); MCP source reserved and denied |
 | Retrieval | `ingest` + `retrieve` with locators and scores | In-memory cosine adapter by default; later pgvector implements the same port |
-| Observability | emit span/trace | Logging adapter by default (no in-heap span list); `MemoryObservability` is test-only |
+| Observability | emit span/trace | Logging adapter by default writes reconstructable metadata (`traceId`, kind, name, latency, status, optional tokens/cost). Retrieval spans use `queryHash` only. No in-heap span list; `MemoryObservability` is test-only. No vendor SDK |
 | Persistence | `ping` (later repositories) | PostgreSQL adapter |
-| Logger | operation + outcome + optional correlation | JSON adapter |
+| Logger | operation + outcome + correlation / trace metadata | JSON adapter; redacts secret shapes |
+| Judge | structured quality score | Optional port; unused on the default quality gate |
 
 ## Voice adapter ≠ runtime
 
@@ -64,9 +67,9 @@ This increment executes no product side effects. Later tools MUST declare a risk
 
 ## What this increment does not ship
 
-No multi-agent topology, production knowledge base, Graph RAG, LangGraph domain, Langfuse SDK, runtime MCP, outbound calling, or Session/Conversation/Document/Chunk tables. Canonical `lidr-specboot/docs/api-spec.yml` `/sessions`, `/tools/{toolName}/invoke`, `/knowledge/documents`, and `/knowledge/query` remain unimplemented.
+No multi-agent topology, production knowledge base, Graph RAG, LangGraph domain, Langfuse SDK, runtime MCP, outbound calling, or Session/Conversation/Document/Chunk/EvaluationRun tables. Canonical `lidr-specboot/docs/api-spec.yml` `/sessions`, `/tools/{toolName}/invoke`, `/knowledge/documents`, `/knowledge/query`, and `/evaluations/runs` remain unimplemented.
 
-See [knowledge.md](./knowledge.md) and [agents/runtime-demo.md](./agents/runtime-demo.md).
+See [knowledge.md](./knowledge.md), [agents/runtime-demo.md](./agents/runtime-demo.md), and [evaluation-gate.md](./evaluation-gate.md).
 
 ## Local network and health
 

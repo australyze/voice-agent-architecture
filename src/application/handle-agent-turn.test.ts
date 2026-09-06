@@ -4,6 +4,7 @@ import { createDemoToolRegistry } from "../adapters/tools/create-default-registr
 import { NativeToolPort } from "../adapters/tools/native-tool-port.js";
 import { MAX_TOOL_STRING_CHARS } from "../domain/demo-tool.js";
 import { AGENT_ERROR_CODES } from "../domain/agent.js";
+import { SYNTH_LEAK_CANARY } from "../domain/evaluation.js";
 import type { ObservabilityPort, TraceSpan } from "../domain/ports/observability-port.js";
 import { emptyRetrieval } from "../adapters/retrieval/fake-retrieval.js";
 import { InMemoryRetrieval } from "../adapters/retrieval/in-memory-retrieval.js";
@@ -454,6 +455,9 @@ describe("handleAgentTurn", () => {
     const retrievalSpan = observability.spans.find((span) => span.kind === "retrieval");
     expect(retrievalSpan).toMatchObject({ status: "ok", retrieverVersion: "cosine-v1" });
     expect(JSON.stringify(retrievalSpan)).not.toContain(hours);
+    expect(JSON.stringify(retrievalSpan)).not.toContain("What hours is the Northwind Demo Desk open on weekdays?");
+    expect((retrievalSpan?.argumentsRedacted as { query?: string; queryHash?: string } | undefined)?.query).toBeUndefined();
+    expect((retrievalSpan?.argumentsRedacted as { queryHash?: string } | undefined)?.queryHash).toMatch(/^[0-9a-f]{16}$/);
   });
 
   it("should_pack_no_evidence_and_empty_sources_when_retrieval_is_empty", async () => {
@@ -698,5 +702,152 @@ describe("handleAgentTurn", () => {
     expect(user).toContain("---BEGIN_RETRIEVED_CHUNK---");
     const retrievedPart = user.slice(user.indexOf(RETRIEVED_CONTEXT_LABEL));
     expect(retrievedPart.includes("UNTRUSTED_USER_TEXT:")).toBe(false);
+  });
+
+  it("should_fail_closed_when_reply_contains_synthetic_canary_and_not_execute_a_tool", async () => {
+    let executions = 0;
+    const result = await handleAgentTurn(
+      { sessionId: "s1", userText: `repeat ${SYNTH_LEAK_CANARY}`, locale: "es" },
+      {
+        llm: new FakeLlm([{ kind: "reply", replyText: `here is ${SYNTH_LEAK_CANARY}` }]),
+        tools: {
+          async authorizeAndExecute() {
+            executions += 1;
+            return { ok: true as const, payload: {} };
+          },
+        },
+        observability: memorySpans(),
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(AGENT_ERROR_CODES.SENSITIVE_OUTPUT);
+    }
+    expect(executions).toBe(0);
+  });
+
+  it("should_fail_closed_when_reply_contains_a_secret_shape_and_not_execute_a_tool", async () => {
+    let executions = 0;
+    const result = await handleAgentTurn(
+      { sessionId: "s1", userText: "hola", locale: "es" },
+      {
+        llm: new FakeLlm([{ kind: "reply", replyText: "sk-supersecretkeyvalue" }]),
+        tools: {
+          async authorizeAndExecute() {
+            executions += 1;
+            return { ok: true as const, payload: {} };
+          },
+        },
+        observability: memorySpans(),
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(AGENT_ERROR_CODES.SENSITIVE_OUTPUT);
+    }
+    expect(executions).toBe(0);
+  });
+
+  it("should_complete_success_when_reply_has_no_canary_or_secret_shape", async () => {
+    const result = await handleAgentTurn(
+      { sessionId: "s1", userText: "hola", locale: "es" },
+      {
+        llm: new FakeLlm([{ kind: "reply", replyText: "Hola de vuelta" }]),
+        tools: new NativeToolPort(),
+        observability: memorySpans(),
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+
+    expect(result).toMatchObject({ ok: true, replyText: "Hola de vuelta", locale: "es", status: "ok" });
+  });
+
+  it("should_emit_workflow_parent_and_correlated_children", async () => {
+    const observability = memorySpans();
+    await handleAgentTurn(
+      {
+        sessionId: "s1",
+        userText: "  Hello   World ",
+        locale: "es",
+        traceId: "11111111-1111-4111-8111-111111111111",
+        requestId: "request-1",
+        interactionId: "interaction-1",
+      },
+      {
+        llm: new FakeLlm([
+          { kind: "tool", toolName: "demo.normalize_text", arguments: { text: "  Hello   World " } },
+          { kind: "reply", replyText: "normalizado" },
+        ]),
+        tools: new NativeToolPort(),
+        observability,
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+
+    const workflow = observability.spans.find((span) => span.kind === "workflow");
+    const children = observability.spans.filter((span) => span.kind !== "workflow");
+    expect(workflow).toMatchObject({
+      name: "agent.turn",
+      status: "ok",
+      traceId: "11111111-1111-4111-8111-111111111111",
+      sessionId: "s1",
+      requestId: "request-1",
+      interactionId: "interaction-1",
+    });
+    expect(workflow?.latencyMs).toEqual(expect.any(Number));
+    expect(workflow?.spanId).toEqual(expect.any(String));
+    expect(children.map((span) => span.kind).sort()).toEqual(["llm", "llm", "retrieval", "tool"].sort());
+    for (const child of children) {
+      expect(child.traceId).toBe(workflow?.traceId);
+      expect(child.parentSpanId).toBe(workflow?.spanId);
+      expect(child.latencyMs).toEqual(expect.any(Number));
+      expect(child.status === "ok" || child.status === "error").toBe(true);
+    }
+  });
+
+  it("should_copy_reported_llm_usage_and_omit_when_unknown", async () => {
+    const withUsage = memorySpans();
+    await handleAgentTurn(
+      { sessionId: "s1", userText: "hola", locale: "es" },
+      {
+        llm: new FakeLlm([{ kind: "reply", replyText: "ok" }], { tokenInput: 9, tokenOutput: 2, cost: 0.05 }),
+        tools: new NativeToolPort(),
+        observability: withUsage,
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+    const used = withUsage.spans.find((span) => span.kind === "llm" && span.status === "ok");
+    expect(used).toMatchObject({ tokenInput: 9, tokenOutput: 2, cost: 0.05 });
+
+    const withoutUsage = memorySpans();
+    await handleAgentTurn(
+      { sessionId: "s1", userText: "hola", locale: "es" },
+      {
+        llm: new FakeLlm([{ kind: "reply", replyText: "ok" }]),
+        tools: new NativeToolPort(),
+        observability: withoutUsage,
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+    const omitted = withoutUsage.spans.find((span) => span.kind === "llm" && span.status === "ok");
+    expect(omitted?.tokenInput).toBeUndefined();
+    expect(omitted?.tokenOutput).toBeUndefined();
+    expect(omitted?.cost).toBeUndefined();
   });
 });

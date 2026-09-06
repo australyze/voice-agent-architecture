@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
   AGENT_ERROR_CODES,
@@ -6,8 +7,8 @@ import {
   type AgentStateTransition,
   type AgentTurnResult,
 } from "../domain/agent.js";
-import type { LlmMessage, LlmPort } from "../domain/ports/llm-port.js";
-import type { ObservabilityPort } from "../domain/ports/observability-port.js";
+import type { LlmMessage, LlmPort, LlmUsage } from "../domain/ports/llm-port.js";
+import type { ObservabilityPort, TraceSpan } from "../domain/ports/observability-port.js";
 import type { RetrievalPort } from "../domain/ports/retrieval-port.js";
 import type { ToolPort } from "../domain/ports/tool-port.js";
 import {
@@ -16,7 +17,8 @@ import {
   RETRIEVAL_K,
   RETRIEVAL_THRESHOLD,
 } from "../domain/knowledge.js";
-import { redactSecrets } from "../domain/redact.js";
+import { containsSensitiveOutput } from "../domain/evaluation.js";
+import { hashQueryForLog } from "../domain/redact.js";
 import { assembleRetrieval, type AssembledSource } from "./assemble-retrieval.js";
 import {
   DEFAULT_FAKE_MODEL_ID,
@@ -53,7 +55,38 @@ export type AgentTurnInput = {
   sessionId: string;
   userText: string;
   locale: string;
+  traceId?: string;
+  requestId?: string;
+  interactionId?: string;
 };
+
+type SpanContext = {
+  traceId: string;
+  turnSpanId: string;
+  sessionId: string;
+  requestId?: string;
+  interactionId?: string;
+};
+
+function correlationFields(context: SpanContext): Pick<TraceSpan, "traceId" | "sessionId" | "requestId" | "interactionId"> {
+  return {
+    traceId: context.traceId,
+    sessionId: context.sessionId,
+    ...(context.requestId === undefined ? {} : { requestId: context.requestId }),
+    ...(context.interactionId === undefined ? {} : { interactionId: context.interactionId }),
+  };
+}
+
+function usageFields(usage: LlmUsage | undefined): Pick<TraceSpan, "tokenInput" | "tokenOutput" | "cost"> {
+  if (usage === undefined) {
+    return {};
+  }
+  return {
+    tokenInput: usage.tokenInput,
+    tokenOutput: usage.tokenOutput,
+    ...(usage.cost === undefined ? {} : { cost: usage.cost }),
+  };
+}
 
 export type HandleAgentTurnDependencies = {
   llm: LlmPort;
@@ -121,10 +154,30 @@ export async function handleAgentTurn(
   dependencies: HandleAgentTurnDependencies,
 ): Promise<AgentTurnResult> {
   const modelId = dependencies.modelId ?? DEFAULT_FAKE_MODEL_ID;
+  const started = Date.now();
+  const context: SpanContext = {
+    traceId: input.traceId ?? randomUUID(),
+    turnSpanId: randomUUID(),
+    sessionId: input.sessionId,
+    ...(input.requestId === undefined ? {} : { requestId: input.requestId }),
+    ...(input.interactionId === undefined ? {} : { interactionId: input.interactionId }),
+  };
+  const emitTurn = (status: "ok" | "error", errorCode?: string): void => {
+    dependencies.observability.emit({
+      name: "agent.turn",
+      kind: "workflow",
+      status,
+      spanId: context.turnSpanId,
+      latencyMs: Date.now() - started,
+      ...correlationFields(context),
+      ...(errorCode === undefined ? {} : { errorCode }),
+    });
+  };
   const states: AgentStateTransition[] = [{ state: "receiving", actor: "runtime" }];
   states.push({ state: "retrieving", actor: "runtime" });
-  const assembled = await retrieveForTurn(input.userText, dependencies);
+  const assembled = await retrieveForTurn(input.userText, dependencies, context);
   if (!assembled.ok) {
+    emitTurn("error", AGENT_ERROR_CODES.RETRIEVAL_FAILED);
     return agentFailure(AGENT_ERROR_CODES.RETRIEVAL_FAILED, states);
   }
   const sources: AssembledSource[] = assembled.sources;
@@ -137,9 +190,10 @@ export async function handleAgentTurn(
     states.push({ state: "reasoning", actor: "model" });
     const llmStarted = Date.now();
     let raw: unknown;
+    let usage: LlmUsage | undefined;
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     try {
-      raw = await Promise.race([
+      const structured = await Promise.race([
         dependencies.llm.completeStructured<unknown>({
           promptVersion: `${dependencies.prompt.promptId}@${dependencies.prompt.version}`,
           modelId,
@@ -153,6 +207,8 @@ export async function handleAgentTurn(
           }, dependencies.llmTimeoutMs);
         }),
       ]);
+      raw = structured.output;
+      usage = structured.usage;
     } catch (error) {
       const code =
         error instanceof Error && "code" in error && error.code === AGENT_ERROR_CODES.LLM_TIMEOUT
@@ -168,7 +224,10 @@ export async function handleAgentTurn(
         latencyMs: Date.now() - llmStarted,
         validationOk: false,
         errorCode: code,
+        parentSpanId: context.turnSpanId,
+        ...correlationFields(context),
       });
+      emitTurn("error", code);
       return agentFailure(code, states);
     } finally {
       if (timeoutHandle !== undefined) {
@@ -188,11 +247,15 @@ export async function handleAgentTurn(
         latencyMs: Date.now() - llmStarted,
         validationOk: false,
         errorCode: AGENT_ERROR_CODES.INVALID_OUTPUT,
+        parentSpanId: context.turnSpanId,
+        ...correlationFields(context),
+        ...usageFields(usage),
       });
       if (!retryUsed) {
         retryUsed = true;
         continue;
       }
+      emitTurn("error", AGENT_ERROR_CODES.INVALID_OUTPUT);
       return agentFailure(AGENT_ERROR_CODES.INVALID_OUTPUT, states);
     }
 
@@ -205,13 +268,22 @@ export async function handleAgentTurn(
       modelId,
       latencyMs: Date.now() - llmStarted,
       validationOk: true,
+      parentSpanId: context.turnSpanId,
+      ...correlationFields(context),
+      ...usageFields(usage),
     });
 
     if (decision.type === "reply") {
+      const replyText = decision.replyText ?? "";
+      if (containsSensitiveOutput(replyText)) {
+        emitTurn("error", AGENT_ERROR_CODES.SENSITIVE_OUTPUT);
+        return agentFailure(AGENT_ERROR_CODES.SENSITIVE_OUTPUT, states);
+      }
       states.push({ state: "completed", actor: "runtime" });
+      emitTurn("ok");
       return {
         ok: true,
-        replyText: decision.replyText ?? "",
+        replyText,
         locale: input.locale,
         status: "ok",
         sources,
@@ -220,11 +292,13 @@ export async function handleAgentTurn(
     }
 
     if (hops >= MAX_TOOL_HOPS) {
+      emitTurn("error", AGENT_ERROR_CODES.TOOL_DENIED);
       return agentFailure(AGENT_ERROR_CODES.TOOL_DENIED, states);
     }
 
     const allowedTools = dependencies.allowedTools ?? RUNTIME_DEMO_ALLOWLIST;
     if (decision.toolName === undefined || !allowedTools.includes(decision.toolName)) {
+      emitTurn("error", AGENT_ERROR_CODES.TOOL_DENIED);
       return agentFailure(AGENT_ERROR_CODES.TOOL_DENIED, states);
     }
 
@@ -251,10 +325,13 @@ export async function handleAgentTurn(
       validationOk: toolResult.ok || toolResult.code !== AGENT_ERROR_CODES.TOOL_INVALID_ARGS,
       argumentsRedacted: redactToolArguments(toolArguments),
       resultBounded: toolResult.ok ? { ok: true } : { code: toolResult.code },
+      parentSpanId: context.turnSpanId,
+      ...correlationFields(context),
       ...(toolResult.ok ? {} : { errorCode: toolResult.code }),
     });
 
     if (!toolResult.ok) {
+      emitTurn("error", toolResult.code);
       if (toolResult.code === AGENT_ERROR_CODES.TOOL_TIMEOUT) {
         return agentFailure(AGENT_ERROR_CODES.TOOL_TIMEOUT, states);
       }
@@ -269,6 +346,7 @@ export async function handleAgentTurn(
 
     const toolJson = JSON.stringify(toolResult.payload);
     if (toolJson.length > MAX_TOOL_STRING_CHARS) {
+      emitTurn("error", AGENT_ERROR_CODES.TOOL_FAILED);
       return agentFailure(AGENT_ERROR_CODES.TOOL_FAILED, states);
     }
     packed = packAgentContext(dependencies.prompt, input.userText, toolJson, assembled.block);
@@ -279,6 +357,7 @@ export async function handleAgentTurn(
 async function retrieveForTurn(
   userText: string,
   dependencies: HandleAgentTurnDependencies,
+  context: SpanContext,
 ): Promise<{ ok: true; block: string; sources: AssembledSource[] } | { ok: false }> {
   const started = Date.now();
   try {
@@ -299,13 +378,15 @@ async function retrieveForTurn(
       latencyMs: Date.now() - started,
       corpusVersion: retrieved.corpusVersion,
       retrieverVersion: retrieved.retrieverVersion,
-      argumentsRedacted: { query: redactSecrets(userText) },
+      argumentsRedacted: { queryHash: hashQueryForLog(userText) },
       resultBounded: {
         hitIds: assembled.sources.map((source) => source.chunkId),
         scores: retrieved.hits.filter((hit) => hit.score >= RETRIEVAL_THRESHOLD).map((hit) => hit.score),
         locators: assembled.sources.map((source) => source.locator),
         empty: assembled.sources.length === 0,
       },
+      parentSpanId: context.turnSpanId,
+      ...correlationFields(context),
     });
     return { ok: true, ...assembled };
   } catch {
@@ -316,6 +397,8 @@ async function retrieveForTurn(
       latencyMs: Date.now() - started,
       errorCode: AGENT_ERROR_CODES.RETRIEVAL_FAILED,
       resultBounded: { hitIds: [], empty: true },
+      parentSpanId: context.turnSpanId,
+      ...correlationFields(context),
     });
     return { ok: false };
   }

@@ -27,7 +27,7 @@ describe("HttpLlm", () => {
       schema: {},
     });
 
-    expect(result).toEqual({ type: "reply", replyText: "ok" });
+    expect(result).toEqual({ output: { type: "reply", replyText: "ok" } });
     expect(fetchImpl).toHaveBeenCalled();
   });
 
