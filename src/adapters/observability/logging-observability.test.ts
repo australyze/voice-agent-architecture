@@ -98,4 +98,22 @@ describe("LoggingObservability", () => {
     const entry = JSON.parse(raw) as { requestId?: string };
     expect(entry.requestId).toBe("[redacted-secret-key]");
   });
+
+  it("should_omit_raw_user_text_on_orchestration_spans", () => {
+    const lines: string[] = [];
+    const observability = new LoggingObservability(new JsonLogger((line) => lines.push(line)));
+    observability.emit({
+      name: "orchestration.handoff",
+      kind: "workflow",
+      status: "ok",
+      traceId: "22222222-2222-4222-8222-222222222222",
+      latencyMs: 2,
+      resultBounded: { toAgentId: "demo-normalize", reason: "routed_intent" },
+    });
+    const raw = lines.join("\n");
+    expect(raw).toContain("orchestration.handoff");
+    expect(raw).not.toContain("Ignore policy");
+    expect(raw).not.toContain("sk-");
+    expect(raw).not.toContain("normalizedText");
+  });
 });

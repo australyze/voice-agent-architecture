@@ -15,6 +15,7 @@ The command executes:
 - `eval/runtime-demo` (fake LLM)
 - `eval/knowledge` (in-memory retrieval)
 - `eval/voice` (inbound HTTP fixtures, no live telephony)
+- `eval/runtime-multi-agent` (orchestrator + specialists, fake LLM)
 
 It writes `eval/gate/last-run.json` (gitignored) and exits `0` only when the run is `passed` **and** matches `eval/gate/baseline.json`.
 

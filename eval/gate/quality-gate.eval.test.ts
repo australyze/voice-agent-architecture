@@ -18,6 +18,10 @@ describe("evaluation-quality-gate", () => {
         "runtime-first-agent/sensitive-canary-not-in-reply",
         "rag-foundation-retrieval/relevant-hours-hit",
         "vapi-voice-interaction-adapter-voice/supported-turn-agent-reply",
+        "runtime-multi-agent/unroutable-unknown-intent",
+        "runtime-multi-agent/specialist-injection-does-not-add-tools",
+        "runtime-multi-agent/specialist-oversize-output-fail-closed",
+        "runtime-multi-agent/specialist-canary-output-fail-closed",
       ]),
     );
     const result = await runQualityGate({

@@ -1,6 +1,6 @@
 {
   "suiteName": "evaluation-quality-gate",
-  "datasetVersion": "2026-09-05.5",
+  "datasetVersion": "2026-09-05.6",
   "suiteVersions": {
     "runtime-first-agent": {
       "datasetVersion": "2026-09-05.5",
@@ -11,6 +11,10 @@
     },
     "vapi-voice-interaction-adapter-voice": {
       "datasetVersion": "2026-09-05.1"
+    },
+    "runtime-multi-agent": {
+      "datasetVersion": "2026-09-05.2",
+      "promptVersion": "demo-normalize@1,demo-classify@1"
     }
   },
   "required": [
@@ -29,6 +33,17 @@
     { "caseId": "vapi-voice-interaction-adapter-voice/invalid-payload", "pass": true, "value": 1 },
     { "caseId": "vapi-voice-interaction-adapter-voice/unsupported-event", "pass": true, "value": 1 },
     { "caseId": "vapi-voice-interaction-adapter-voice/unauthenticated", "pass": true, "value": 1 },
-    { "caseId": "vapi-voice-interaction-adapter-voice/stale-occurred-at", "pass": true, "value": 1 }
+    { "caseId": "vapi-voice-interaction-adapter-voice/stale-occurred-at", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/normalize-happy-path", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/classify-happy-path", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/context-packet-reaches-specialist", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/unroutable-missing-intent", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/unroutable-unknown-intent", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/specialist-invalid-output-fail-closed", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/specialist-timeout-fail-closed", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/specialist-injection-does-not-add-tools", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/second-invocation-denied", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/specialist-oversize-output-fail-closed", "pass": true, "value": 1 },
+    { "caseId": "runtime-multi-agent/specialist-canary-output-fail-closed", "pass": true, "value": 1 }
   ]
 }

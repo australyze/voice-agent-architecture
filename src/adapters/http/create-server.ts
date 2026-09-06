@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyInstance } from "fastify";
 import {
   DEFAULT_INBOUND_MAX_SKEW_MS,
@@ -14,9 +15,10 @@ import { checkLiveness } from "../../application/check-liveness.js";
 import { checkReadiness } from "../../application/check-readiness.js";
 import { checkVoiceIntegration } from "../../application/check-voice-integration.js";
 import { handleAgentTurn } from "../../application/handle-agent-turn.js";
+import { handleOrchestratedTurn } from "../../application/handle-orchestrated-turn.js";
 import { RUNTIME_DEMO_ALLOWLIST } from "../../domain/demo-tool.js";
 import { handleVoiceTurn } from "../../application/handle-voice-turn.js";
-import { loadRuntimeDemoPrompt } from "../../application/load-prompt.js";
+import { loadDemoClassifyPrompt, loadDemoNormalizePrompt, loadRuntimeDemoPrompt } from "../../application/load-prompt.js";
 import { mapErrorToEnvelope } from "../../application/map-error.js";
 import type { LoggerPort } from "../../domain/ports/logger-port.js";
 import type { LlmPort } from "../../domain/ports/llm-port.js";
@@ -26,13 +28,19 @@ import type { RetrievalPort } from "../../domain/ports/retrieval-port.js";
 import type { ToolPort } from "../../domain/ports/tool-port.js";
 import { ingestExampleDocument } from "../../application/ingest-document.js";
 import { InMemoryRetrieval } from "../retrieval/in-memory-retrieval.js";
-import { VoiceBoundaryError } from "../../domain/errors.js";
+import { OrchestrationBoundaryError, VoiceBoundaryError } from "../../domain/errors.js";
 import { VOICE_ERROR_CODES } from "../../domain/voice.js";
 import { defaultFakeLlm } from "../llm/fake-llm.js";
 import { HttpLlm } from "../llm/http-llm.js";
 import { LoggingObservability } from "../observability/logging-observability.js";
 import { createProductToolRegistry } from "../tools/create-default-registry.js";
 import { NativeToolPort } from "../tools/native-tool-port.js";
+import {
+  DEMO_ORCHESTRATE_SECRET_HEADER,
+  authenticateDemoOrchestrate,
+  mapOrchestrateBody,
+  resolveDemoOrchestrateSecret,
+} from "./demo-orchestrate.js";
 import {
   INBOUND_BODY_LIMIT_BYTES,
   InboundRateLimiter,
@@ -43,6 +51,7 @@ import {
   mapInboundToVoiceTurn,
   mapVoiceReplyToConsumer,
 } from "../voice/inbound.js";
+import { ORCHESTRATION_ERROR_CODES, adapterSafeOrchestrationMessage } from "../../domain/orchestration.js";
 
 export type LivenessChecker = () => { status: "alive" };
 
@@ -103,6 +112,8 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
     await ingestExampleDocument({ llm, retrieval });
   }
   const prompt = loadRuntimeDemoPrompt();
+  const normalizePrompt = loadDemoNormalizePrompt();
+  const classifyPrompt = loadDemoClassifyPrompt();
   const inboundMaxSkewMs = voice.inboundMaxSkewMs ?? DEFAULT_INBOUND_MAX_SKEW_MS;
   const inboundLimiter = new InboundRateLimiter(
     voice.inboundRateLimit ?? DEFAULT_INBOUND_RATE_LIMIT,
@@ -159,6 +170,65 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
     }
 
     return mapVoiceReplyToConsumer(result.reply);
+  });
+
+  const demoOrchestrateSecret = resolveDemoOrchestrateSecret(voice);
+  const demoLimiter = new InboundRateLimiter(
+    voice.inboundRateLimit ?? DEFAULT_INBOUND_RATE_LIMIT,
+    voice.inboundRateWindowMs ?? DEFAULT_INBOUND_RATE_WINDOW_MS,
+  );
+
+  server.post("/demo/orchestrate", { bodyLimit: INBOUND_BODY_LIMIT_BYTES }, async (request) => {
+    authenticateDemoOrchestrate(
+      demoOrchestrateSecret,
+      headerValue(request.headers[DEMO_ORCHESTRATE_SECRET_HEADER]),
+      llmConfig.mode,
+    );
+    const rateKey = demoOrchestrateSecret === undefined ? "anonymous" : inboundSecretHash(demoOrchestrateSecret);
+    if (!demoLimiter.allow(rateKey)) {
+      throw new OrchestrationBoundaryError(
+        ORCHESTRATION_ERROR_CODES.RATE_LIMITED,
+        adapterSafeOrchestrationMessage(ORCHESTRATION_ERROR_CODES.RATE_LIMITED),
+      );
+    }
+    const body = mapOrchestrateBody(request.body, voice.defaultLocale);
+    const traceId = randomUUID();
+    const started = Date.now();
+    const result = await handleOrchestratedTurn(
+      {
+        userText: body.userText,
+        locale: body.locale ?? voice.defaultLocale,
+        intent: body.intent,
+        ...(body.sessionId === undefined ? {} : { sessionId: body.sessionId }),
+        traceId,
+      },
+      {
+        llm,
+        observability,
+        normalizePrompt,
+        classifyPrompt,
+        modelId: llmConfig.modelId,
+        llmTimeoutMs: llmConfig.timeoutMs,
+      },
+    );
+    observability.emit({
+      name: "http.demo.orchestrate",
+      kind: "http",
+      status: result.ok ? "ok" : "error",
+      traceId,
+      latencyMs: Date.now() - started,
+      ...(result.ok ? {} : { errorCode: result.error.code }),
+    });
+    if (!result.ok) {
+      throw new OrchestrationBoundaryError(result.error.code, result.error.message);
+    }
+    return {
+      sessionId: result.sessionId,
+      intent: result.intent,
+      specialistId: result.specialistId,
+      replyText: result.replyText,
+      ...("normalizedText" in result ? { normalizedText: result.normalizedText } : { label: result.label }),
+    };
   });
 
   server.setErrorHandler((error, _request, reply) => {

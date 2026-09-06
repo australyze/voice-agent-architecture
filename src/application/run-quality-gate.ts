@@ -19,7 +19,7 @@ import type { JudgePort } from "../domain/ports/judge-port.js";
 import type { ObservabilityPort } from "../domain/ports/observability-port.js";
 import { redactSecrets } from "../domain/redact.js";
 
-export const REQUIRED_SUITE_KEYS = ["runtime-demo", "knowledge", "voice"] as const;
+export const REQUIRED_SUITE_KEYS = ["runtime-demo", "knowledge", "voice", "runtime-multi-agent"] as const;
 
 export type ExecutedEvalSuite = {
   key: (typeof REQUIRED_SUITE_KEYS)[number];

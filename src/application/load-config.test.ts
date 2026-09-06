@@ -142,6 +142,15 @@ describe("loadConfig", () => {
     });
   });
 
+  it("should_load_dedicated_demo_orchestrate_secret", () => {
+    const config = loadConfig({
+      ...VALID_ENV,
+      DEMO_ORCHESTRATE_SECRET: "demo-only-secret",
+    });
+    expect(config.voice.demoOrchestrateSecret).toBe("demo-only-secret");
+    expect(config.voice.inboundSecret).toBeUndefined();
+  });
+
   it("should_fail_closed_when_present_voice_settings_are_invalid_without_echoing_secrets", () => {
     try {
       loadConfig({ ...VALID_ENV, VOICE_TIMEOUT_MS: "not-a-timeout" });

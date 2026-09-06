@@ -850,4 +850,24 @@ describe("handleAgentTurn", () => {
     expect(omitted?.tokenOutput).toBeUndefined();
     expect(omitted?.cost).toBeUndefined();
   });
+
+  it("should_keep_runtime_demo_path_free_of_orchestrator_identities", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("./handle-agent-turn.ts", import.meta.url), "utf8");
+    expect(source).not.toContain("handleOrchestratedTurn");
+    expect(source).not.toContain("demo-normalize");
+    expect(source).not.toContain("runtime-orchestrator");
+    const result = await handleAgentTurn(
+      { sessionId: "s1", userText: "hola", locale: "es" },
+      {
+        llm: new FakeLlm([{ kind: "reply", replyText: "solo runtime-demo" }]),
+        tools: new NativeToolPort(),
+        observability: memorySpans(),
+        retrieval: emptyRetrieval(),
+        prompt,
+        llmTimeoutMs: 500,
+      },
+    );
+    expect(result).toMatchObject({ ok: true, replyText: "solo runtime-demo" });
+  });
 });

@@ -1,13 +1,15 @@
 import { executeKnowledgeEval } from "./execute-knowledge-eval.js";
 import { executeRuntimeDemoEval } from "./execute-runtime-demo-eval.js";
+import { executeRuntimeMultiAgentEval } from "./execute-runtime-multi-agent-eval.js";
 import { executeVoiceEval } from "./execute-voice-eval.js";
 import type { ExecutedEvalSuite } from "../../application/run-quality-gate.js";
 
 export async function executeDefaultEvalSuites(root = process.cwd()): Promise<ExecutedEvalSuite[]> {
-  const [agent, knowledge, voice] = await Promise.all([
+  const [agent, knowledge, voice, multiAgent] = await Promise.all([
     executeRuntimeDemoEval(root),
     executeKnowledgeEval(root),
     executeVoiceEval(root),
+    executeRuntimeMultiAgentEval(root),
   ]);
   return [
     {
@@ -28,6 +30,13 @@ export async function executeDefaultEvalSuites(root = process.cwd()): Promise<Ex
       suiteName: voice.metadata.suiteName,
       datasetVersion: voice.metadata.datasetVersion ?? "2026-09-05.1",
       scores: voice.scores,
+    },
+    {
+      key: "runtime-multi-agent",
+      suiteName: multiAgent.metadata.suiteName,
+      datasetVersion: multiAgent.metadata.datasetVersion,
+      promptVersion: multiAgent.metadata.promptVersion,
+      scores: multiAgent.scores,
     },
   ];
 }
