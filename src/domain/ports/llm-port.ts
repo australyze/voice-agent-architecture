@@ -32,9 +32,20 @@ export type LlmEmbedResult = {
   modelVersion: string;
 };
 
+export type LlmUsage = {
+  tokenInput: number;
+  tokenOutput: number;
+  cost?: number;
+};
+
+export type LlmStructuredResult<T> = {
+  output: T;
+  usage?: LlmUsage;
+};
+
 export type LlmPort = {
   complete(request: LlmCompleteRequest): Promise<LlmCompleteResult>;
   stream(request: LlmCompleteRequest): AsyncIterable<string>;
-  completeStructured<T>(request: LlmStructuredRequest<unknown>): Promise<T>;
+  completeStructured<T>(request: LlmStructuredRequest<unknown>): Promise<LlmStructuredResult<T>>;
   embed(request: LlmEmbedRequest): Promise<LlmEmbedResult>;
 };

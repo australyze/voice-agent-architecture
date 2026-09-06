@@ -37,9 +37,9 @@ Dependencies point inward. Replacing a voice, LLM, store, or observability vendo
 | Speech | `transcribe`, `synthesize` | Interface only — unused on the inbound text path |
 | Tools | authorize + execute | In-process registry; product `demo.normalize_text` (`read`, `native`); MCP source reserved and denied |
 | Retrieval | `ingest` + `retrieve` with locators and scores | In-memory cosine adapter by default; later pgvector implements the same port |
-| Observability | emit span/trace | Logging adapter by default (no in-heap span list); `MemoryObservability` is test-only |
+| Observability | emit span/trace | Logging adapter by default writes reconstructable metadata (`traceId`, kind, name, latency, status, optional tokens/cost). Retrieval spans use `queryHash` only. No in-heap span list; `MemoryObservability` is test-only. No vendor SDK |
 | Persistence | `ping` (later repositories) | PostgreSQL adapter |
-| Logger | operation + outcome + optional correlation | JSON adapter |
+| Logger | operation + outcome + correlation / trace metadata | JSON adapter; redacts secret shapes |
 | Judge | structured quality score | Optional port; unused on the default quality gate |
 
 ## Voice adapter ≠ runtime

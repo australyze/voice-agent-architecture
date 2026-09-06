@@ -36,12 +36,44 @@ export class JsonLogger implements LoggerPort {
       record.eventType = redactSecrets(event.eventType);
     }
 
+    if (event.occurredAt !== undefined) {
+      record.occurredAt = redactSecrets(event.occurredAt);
+    }
+
     if (event.processingTimeMs !== undefined) {
       record.processingTimeMs = event.processingTimeMs;
     }
 
     if (event.status !== undefined) {
       record.status = redactSecrets(event.status);
+    }
+
+    if (event.traceId !== undefined) {
+      record.traceId = redactSecrets(event.traceId);
+    }
+
+    if (event.spanKind !== undefined) {
+      record.spanKind = redactSecrets(event.spanKind);
+    }
+
+    if (event.spanName !== undefined) {
+      record.spanName = redactSecrets(event.spanName);
+    }
+
+    if (event.latencyMs !== undefined) {
+      record.latencyMs = event.latencyMs;
+    }
+
+    if (event.tokenInput !== undefined) {
+      record.tokenInput = event.tokenInput;
+    }
+
+    if (event.tokenOutput !== undefined) {
+      record.tokenOutput = event.tokenOutput;
+    }
+
+    if (event.cost !== undefined) {
+      record.cost = event.cost;
     }
 
     this.write(JSON.stringify(record));

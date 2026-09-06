@@ -99,6 +99,7 @@ export async function runQualityGate(input: RunQualityGateInput): Promise<Qualit
   input.observability.emit({
     name: "evaluation-gate",
     kind: "workflow",
+    traceId: run.id,
     status: passed ? "ok" : "error",
     ...(promptVersion === undefined ? {} : { promptVersion }),
     resultBounded: JSON.parse(

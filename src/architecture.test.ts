@@ -14,6 +14,8 @@ const FORBIDDEN_CORE_IMPORTS = [
   /@vapi-ai/i,
   /\bvapi\b/i,
   /langfuse/i,
+  /opentelemetry/i,
+  /@opentelemetry\//i,
   /langchain/i,
   /langgraph/i,
   /@prisma\//i,

@@ -130,12 +130,16 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
       locale: voice.defaultLocale,
       timeoutMs: voice.timeoutMs,
       logger: dependencies.logger,
-      runAgent: (voiceTurn) =>
+      observability,
+      runAgent: (voiceTurn, correlation) =>
         handleAgentTurn(
           {
             sessionId: voiceTurn.sessionId,
             userText: voiceTurn.inputText,
             locale: voiceTurn.locale ?? voice.defaultLocale,
+            traceId: correlation.traceId,
+            ...(voiceTurn.requestId === undefined ? {} : { requestId: voiceTurn.requestId }),
+            ...(voiceTurn.interactionId === undefined ? {} : { interactionId: voiceTurn.interactionId }),
           },
           {
             llm,

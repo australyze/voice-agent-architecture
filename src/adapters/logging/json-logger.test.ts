@@ -51,4 +51,36 @@ describe("JsonLogger", () => {
     expect(raw).not.toContain("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9");
     expect(raw).not.toContain("sk-proj-abcdefghijklmnopqrstuvwx");
   });
+
+  it("should_write_trace_metadata_and_redact_secret_shapes_in_ids", () => {
+    const lines: string[] = [];
+    const logger = new JsonLogger((line) => lines.push(line));
+
+    logger.log({
+      operation: "trace.llm",
+      outcome: "success",
+      status: "ok",
+      traceId: "trace-1",
+      spanKind: "llm",
+      spanName: "llm.completeStructured",
+      latencyMs: 11,
+      tokenInput: 20,
+      tokenOutput: 5,
+      cost: 0.002,
+      sessionId: "LLM_API_KEY=abc123supersecret",
+    });
+
+    const raw = lines[0] ?? "";
+    expect(raw).not.toContain("abc123supersecret");
+    const entry = JSON.parse(raw) as Record<string, string | number>;
+    expect(entry.traceId).toBe("trace-1");
+    expect(entry.spanKind).toBe("llm");
+    expect(entry.spanName).toBe("llm.completeStructured");
+    expect(entry.latencyMs).toBe(11);
+    expect(entry.tokenInput).toBe(20);
+    expect(entry.tokenOutput).toBe(5);
+    expect(entry.cost).toBe(0.002);
+    expect(entry.sessionId).toBe("LLM_API_KEY=[redacted]");
+  });
 });
+
