@@ -53,4 +53,6 @@ If a live Vapi assistant expects a different wrapper, keep that wrapper in this 
 
 Default inbound session owner is `runtime-demo`. Set `VOICE_SESSION_OWNER=wom-customer-service-agent` to route the same HTTP contract to the simulated WOM customer-service agent. The mapper still does not own prompts or tools. See [agents/wom-customer-service-agent.md](../agents/wom-customer-service-agent.md).
 
+The browser demo (`web/`) uses the Vapi Web SDK for live media only. It MUST NOT receive Server URL webhooks. Those POST requests stay on this inbound route. See [vapi-web-demo.md](./vapi-web-demo.md).
+
 `lidr-specboot/docs/` methodology was not rewritten for this change.

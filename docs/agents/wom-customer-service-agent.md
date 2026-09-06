@@ -60,8 +60,11 @@ npm run test:eval-gate
 
 Smoke: `handleAgentTurn` with a scripted fake LLM (usage → reply), or inbound inject with `sessionOwner: "wom-customer-service-agent"`.
 
+## Web demo (HU #010)
+
+Interviewers start a browser call from `web/` using the Vapi Web SDK. The runtime and tools stay here. See [adapters/vapi-web-demo.md](../adapters/vapi-web-demo.md).
+
 ## Deferred
 
-- HU #010 — React + shadcn/ui + Vapi Web SDK
 - HU #011 — Supabase persistence + observability UI
 - HU #012 — broader evaluation + public deployment

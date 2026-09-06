@@ -12,7 +12,10 @@
     "dev": "tsx src/composition/main.ts",
     "test": "vitest run",
     "test:eval-gate": "tsx src/composition/run-eval-gate.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "web:dev": "npm --prefix web run dev",
+    "web:test": "npm --prefix web run test",
+    "web:typecheck": "npm --prefix web run typecheck"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
