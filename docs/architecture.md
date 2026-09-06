@@ -17,6 +17,7 @@ src/
   adapters/
     http/           # health + inbound + demo orchestrate route wiring
     voice/          # Vapi/simulator translation only
+web/                # HU #010 interviewer UI (React). Not the runtime.
     llm/            # fake + optional HTTP completions adapter; `embed` is lexical offline
     tools/          # product registry (demo.normalize_text + wom.*); test-only demo.echo_token off the product catalog
     wom/            # in-process canned WOM directory (no network)
@@ -72,7 +73,7 @@ No multi-agent topology, production knowledge base, Graph RAG, LangGraph domain,
 
 See [knowledge.md](./knowledge.md), [agents/runtime-demo.md](./agents/runtime-demo.md), [agents/wom-customer-service-agent.md](./agents/wom-customer-service-agent.md), and [evaluation-gate.md](./evaluation-gate.md).
 
-The WOM path is a **simulated** customer-service environment. It does not call WOM APIs. Web UI (HU #010), persistence/observability UI (HU #011), and public evaluation/deploy (HU #012) are deferred.
+The WOM path is a **simulated** customer-service environment. It does not call WOM APIs. The interviewer web UI (HU #010) lives in `web/` and talks to Vapi only for browser media. Persistence/observability UI (HU #011) and public evaluation/deploy (HU #012) remain deferred. See [adapters/vapi-web-demo.md](./adapters/vapi-web-demo.md).
 
 ## Local network and health
 
