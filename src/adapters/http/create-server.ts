@@ -7,6 +7,7 @@ import {
   DEFAULT_LLM_MODEL_ID,
   DEFAULT_LLM_TIMEOUT_MS,
   DEFAULT_VOICE_LOCALE,
+  DEFAULT_VOICE_SESSION_OWNER,
   DEFAULT_VOICE_TIMEOUT_MS,
   type LlmConfig,
   type VoiceConfig,
@@ -17,8 +18,14 @@ import { checkVoiceIntegration } from "../../application/check-voice-integration
 import { handleAgentTurn } from "../../application/handle-agent-turn.js";
 import { handleOrchestratedTurn } from "../../application/handle-orchestrated-turn.js";
 import { RUNTIME_DEMO_ALLOWLIST } from "../../domain/demo-tool.js";
+import { WOM_CUSTOMER_SERVICE_AGENT_ID, WOM_CUSTOMER_SERVICE_ALLOWLIST } from "../../domain/wom-tools.js";
 import { handleVoiceTurn } from "../../application/handle-voice-turn.js";
-import { loadDemoClassifyPrompt, loadDemoNormalizePrompt, loadRuntimeDemoPrompt } from "../../application/load-prompt.js";
+import {
+  loadDemoClassifyPrompt,
+  loadDemoNormalizePrompt,
+  loadRuntimeDemoPrompt,
+  loadWomCustomerServicePrompt,
+} from "../../application/load-prompt.js";
 import { mapErrorToEnvelope } from "../../application/map-error.js";
 import type { LoggerPort } from "../../domain/ports/logger-port.js";
 import type { LlmPort } from "../../domain/ports/llm-port.js";
@@ -33,8 +40,7 @@ import { VOICE_ERROR_CODES } from "../../domain/voice.js";
 import { defaultFakeLlm } from "../llm/fake-llm.js";
 import { HttpLlm } from "../llm/http-llm.js";
 import { LoggingObservability } from "../observability/logging-observability.js";
-import { createProductToolRegistry } from "../tools/create-default-registry.js";
-import { NativeToolPort } from "../tools/native-tool-port.js";
+import { createSessionOwnerToolPort } from "../tools/native-tool-port.js";
 import {
   DEMO_ORCHESTRATE_SECRET_HEADER,
   authenticateDemoOrchestrate,
@@ -100,18 +106,16 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
     modelId: DEFAULT_LLM_MODEL_ID,
   };
   const llm = composeLlm(llmConfig, dependencies.llm);
-  const tools =
-    dependencies.tools ??
-    new NativeToolPort({
-      registry: createProductToolRegistry(),
-      allowedTools: RUNTIME_DEMO_ALLOWLIST,
-    });
+  const sessionOwner = voice.sessionOwner ?? DEFAULT_VOICE_SESSION_OWNER;
+  const womOwner = sessionOwner === WOM_CUSTOMER_SERVICE_AGENT_ID;
+  const allowedTools = womOwner ? WOM_CUSTOMER_SERVICE_ALLOWLIST : RUNTIME_DEMO_ALLOWLIST;
+  const tools = dependencies.tools ?? createSessionOwnerToolPort(allowedTools);
   const observability = dependencies.observability ?? new LoggingObservability(dependencies.logger);
   const retrieval = dependencies.retrieval ?? new InMemoryRetrieval();
-  if (dependencies.retrieval === undefined) {
+  if (dependencies.retrieval === undefined && !womOwner) {
     await ingestExampleDocument({ llm, retrieval });
   }
-  const prompt = loadRuntimeDemoPrompt();
+  const prompt = womOwner ? loadWomCustomerServicePrompt() : loadRuntimeDemoPrompt();
   const normalizePrompt = loadDemoNormalizePrompt();
   const classifyPrompt = loadDemoClassifyPrompt();
   const inboundMaxSkewMs = voice.inboundMaxSkewMs ?? DEFAULT_INBOUND_MAX_SKEW_MS;
@@ -160,7 +164,7 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
             prompt,
             modelId: llmConfig.modelId,
             llmTimeoutMs: llmConfig.timeoutMs,
-            allowedTools: RUNTIME_DEMO_ALLOWLIST,
+            allowedTools,
           },
         ),
     });

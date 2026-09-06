@@ -19,7 +19,13 @@ describe("runQualityGate", () => {
       gate: "manual",
     });
 
-    expect(suites.map((suite) => suite.key).sort()).toEqual(["knowledge", "runtime-demo", "runtime-multi-agent", "voice"]);
+    expect(suites.map((suite) => suite.key).sort()).toEqual([
+      "knowledge",
+      "runtime-demo",
+      "runtime-multi-agent",
+      "voice",
+      "wom-customer-service",
+    ]);
     expect(suites.find((suite) => suite.key === "runtime-demo")?.promptVersion).toBe("runtime-demo@2");
     expect(result.run.suiteName).toBe("evaluation-quality-gate");
     expect(result.run.datasetVersion).toContain("runtime-demo:");

@@ -8,5 +8,9 @@ describe("voice inbound adapter boundary", () => {
     expect(source).not.toMatch(/llm-port/);
     expect(source).not.toMatch(/LlmPort/);
     expect(source).not.toMatch(/handleAgentTurn/);
+    expect(source).not.toMatch(/wom-customer-service-agent/);
+    expect(source).not.toMatch(/wom\.get_/);
+    expect(source).not.toMatch(/canned-wom-directory/);
+    expect(source).not.toMatch(/loadWomCustomerServicePrompt/);
   });
 });

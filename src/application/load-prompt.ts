@@ -26,6 +26,10 @@ export const DEMO_CLASSIFY_PROMPT_ID = "demo-classify";
 export const DEMO_CLASSIFY_PROMPT_VERSION = "1";
 export const DEMO_CLASSIFY_PROMPT_PATH = "prompts/demo-classify/v1.md";
 
+export const WOM_CUSTOMER_SERVICE_PROMPT_ID = "wom-customer-service-agent";
+export const WOM_CUSTOMER_SERVICE_PROMPT_VERSION = "1";
+export const WOM_CUSTOMER_SERVICE_PROMPT_PATH = "prompts/wom-customer-service-agent/v1.md";
+
 export function loadRuntimeDemoPrompt(root = process.cwd()): PromptVersion {
   return loadPromptFile(root, RUNTIME_DEMO_PROMPT_PATH, RUNTIME_DEMO_PROMPT_ID, RUNTIME_DEMO_PROMPT_VERSION);
 }
@@ -36,6 +40,15 @@ export function loadDemoNormalizePrompt(root = process.cwd()): PromptVersion {
 
 export function loadDemoClassifyPrompt(root = process.cwd()): PromptVersion {
   return loadPromptFile(root, DEMO_CLASSIFY_PROMPT_PATH, DEMO_CLASSIFY_PROMPT_ID, DEMO_CLASSIFY_PROMPT_VERSION);
+}
+
+export function loadWomCustomerServicePrompt(root = process.cwd()): PromptVersion {
+  return loadPromptFile(
+    root,
+    WOM_CUSTOMER_SERVICE_PROMPT_PATH,
+    WOM_CUSTOMER_SERVICE_PROMPT_ID,
+    WOM_CUSTOMER_SERVICE_PROMPT_VERSION,
+  );
 }
 
 function loadPromptFile(root: string, relativePath: string, promptId: string, version: string): PromptVersion {

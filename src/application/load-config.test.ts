@@ -23,6 +23,7 @@ describe("loadConfig", () => {
         inboundMaxSkewMs: 60_000,
         inboundRateLimit: 30,
         inboundRateWindowMs: 60_000,
+        sessionOwner: "runtime-demo",
       },
       llm: {
         mode: "fake",
@@ -112,6 +113,7 @@ describe("loadConfig", () => {
       inboundMaxSkewMs: 60_000,
       inboundRateLimit: 30,
       inboundRateWindowMs: 60_000,
+      sessionOwner: "runtime-demo",
     });
     expect(config.llm).toEqual({
       mode: "fake",
@@ -139,7 +141,28 @@ describe("loadConfig", () => {
       inboundMaxSkewMs: 60_000,
       inboundRateLimit: 30,
       inboundRateWindowMs: 60_000,
+      sessionOwner: "runtime-demo",
     });
+  });
+
+  it("should_default_and_accept_voice_session_owner", () => {
+    expect(loadConfig(VALID_ENV).voice.sessionOwner).toBe("runtime-demo");
+    expect(loadConfig({ ...VALID_ENV, VOICE_SESSION_OWNER: "wom-customer-service-agent" }).voice.sessionOwner).toBe(
+      "wom-customer-service-agent",
+    );
+  });
+
+  it("should_fail_closed_when_voice_session_owner_is_invalid_without_echoing_secrets", () => {
+    try {
+      loadConfig({ ...VALID_ENV, VOICE_SESSION_OWNER: "sk-not-an-agent" });
+      throw new Error("expected ConfigError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      const configError = error as ConfigError;
+      expect(configError.code).toBe("CONFIG_INVALID");
+      expect(configError.message).toContain("VOICE_SESSION_OWNER");
+      expect(configError.message).not.toContain("sk-not-an-agent");
+    }
   });
 
   it("should_load_dedicated_demo_orchestrate_secret", () => {

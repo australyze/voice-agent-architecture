@@ -51,4 +51,6 @@ If a live Vapi assistant expects a different wrapper, keep that wrapper in this 
 3. Point the Vapi server URL at `https://<host>/adapters/voice/inbound` and send the same secret header (or add a mapping layer).
 4. Live smoke is **not** required for tests or `/verify`.
 
+Default inbound session owner is `runtime-demo`. Set `VOICE_SESSION_OWNER=wom-customer-service-agent` to route the same HTTP contract to the simulated WOM customer-service agent. The mapper still does not own prompts or tools. See [agents/wom-customer-service-agent.md](../agents/wom-customer-service-agent.md).
+
 `lidr-specboot/docs/` methodology was not rewritten for this change.

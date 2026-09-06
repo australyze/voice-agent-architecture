@@ -10,6 +10,9 @@ export const DEFAULT_LLM_MODEL_ID = "fake";
 export const DEFAULT_INBOUND_MAX_SKEW_MS = 60_000;
 export const DEFAULT_INBOUND_RATE_LIMIT = 30;
 export const DEFAULT_INBOUND_RATE_WINDOW_MS = 60_000;
+export const DEFAULT_VOICE_SESSION_OWNER = "runtime-demo";
+export const VOICE_SESSION_OWNERS = ["runtime-demo", "wom-customer-service-agent"] as const;
+export type VoiceSessionOwner = (typeof VOICE_SESSION_OWNERS)[number];
 const LISTEN_HOST_PATTERN = /^(?:(?:\d{1,3}\.){3}\d{1,3}|\[?[0-9a-fA-F:]+\]?|[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)$/;
 const LOCALE_PATTERN = /^[a-z]{2}(?:-[A-Z]{2})?$/;
 
@@ -109,6 +112,14 @@ const configSchema = z.object({
     .refine((value) => /^\d+$/.test(value), "LLM_TIMEOUT_MS must be an integer")
     .transform((value) => Number(value))
     .refine((ms) => ms >= 1 && ms <= 60_000, "LLM_TIMEOUT_MS must be between 1 and 60000"),
+  VOICE_SESSION_OWNER: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === "" ? DEFAULT_VOICE_SESSION_OWNER : value))
+    .refine(
+      (value): value is VoiceSessionOwner => (VOICE_SESSION_OWNERS as readonly string[]).includes(value),
+      "VOICE_SESSION_OWNER must be runtime-demo or wom-customer-service-agent",
+    ),
 });
 
 export type VoiceConfig = {
@@ -121,6 +132,7 @@ export type VoiceConfig = {
   inboundMaxSkewMs?: number;
   inboundRateLimit?: number;
   inboundRateWindowMs?: number;
+  sessionOwner?: VoiceSessionOwner;
 };
 
 export type LlmConfig =
@@ -161,6 +173,7 @@ export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
     LLM_API_KEY: env.LLM_API_KEY,
     LLM_MODEL_ID: env.LLM_MODEL_ID,
     LLM_TIMEOUT_MS: env.LLM_TIMEOUT_MS,
+    VOICE_SESSION_OWNER: env.VOICE_SESSION_OWNER,
   });
 
   if (!parsed.success) {
@@ -193,6 +206,7 @@ export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
       inboundMaxSkewMs: parsed.data.VOICE_INBOUND_MAX_SKEW_MS,
       inboundRateLimit: parsed.data.VOICE_INBOUND_RATE_LIMIT,
       inboundRateWindowMs: parsed.data.VOICE_INBOUND_RATE_WINDOW_MS,
+      sessionOwner: parsed.data.VOICE_SESSION_OWNER,
     },
     llm:
       parsed.data.LLM_BASE_URL !== undefined && parsed.data.LLM_API_KEY !== undefined

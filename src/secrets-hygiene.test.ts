@@ -24,6 +24,7 @@ describe("secret hygiene", () => {
     expect(example).toContain("VOICE_INBOUND_MAX_SKEW_MS=60000");
     expect(example).toContain("VOICE_INBOUND_RATE_LIMIT=30");
     expect(example).toContain("VOICE_INBOUND_RATE_WINDOW_MS=60000");
+    expect(example).toContain("VOICE_SESSION_OWNER=runtime-demo");
     expect(example).toContain("LLM_BASE_URL=");
     expect(example).toContain("LLM_API_KEY=");
     expect(example).toContain("LLM_MODEL_ID=fake");

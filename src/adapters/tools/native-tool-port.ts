@@ -15,6 +15,13 @@ export type NativeToolPortOptions = {
   allowedTools?: readonly string[];
 };
 
+export function createSessionOwnerToolPort(allowedTools: readonly string[]): NativeToolPort {
+  return new NativeToolPort({
+    registry: createProductToolRegistry(),
+    allowedTools,
+  });
+}
+
 export class NativeToolPort implements ToolPort {
   private readonly registry: ToolRegistry;
   private readonly hangMs?: number;

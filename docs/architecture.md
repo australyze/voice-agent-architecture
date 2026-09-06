@@ -18,7 +18,8 @@ src/
     http/           # health + inbound + demo orchestrate route wiring
     voice/          # Vapi/simulator translation only
     llm/            # fake + optional HTTP completions adapter; `embed` is lexical offline
-    tools/          # product registry (demo.normalize_text); test-only demo.echo_token off the product catalog
+    tools/          # product registry (demo.normalize_text + wom.*); test-only demo.echo_token off the product catalog
+    wom/            # in-process canned WOM directory (no network)
     retrieval/      # in-memory cosine store (default); port-swappable
     eval/           # suite runners for the quality gate (fakes only)
     persistence/    # PostgreSQL driver
@@ -35,7 +36,7 @@ Dependencies point inward. Replacing a voice, LLM, store, or observability vendo
 | --- | --- | --- |
 | LLM | `complete`, `stream`, structured output, `embed` | Fake by default; optional HTTP adapter. Embed is deterministic lexical (no live vendor) |
 | Speech | `transcribe`, `synthesize` | Interface only — unused on the inbound text path |
-| Tools | authorize + execute | In-process registry; product `demo.normalize_text` (`read`, `native`); MCP source reserved and denied |
+| Tools | authorize + execute | In-process registry; product `demo.normalize_text` and three `wom.*` read tools (`native`); MCP source reserved and denied |
 | Retrieval | `ingest` + `retrieve` with locators and scores | In-memory cosine adapter by default; later pgvector implements the same port |
 | Observability | emit span/trace | Logging adapter by default writes reconstructable metadata (`traceId`, kind, name, latency, status, optional tokens/cost). Retrieval spans use `queryHash` only. No in-heap span list; `MemoryObservability` is test-only. No vendor SDK |
 | Persistence | `ping` (later repositories) | PostgreSQL adapter |
@@ -49,7 +50,7 @@ Vapi / simulator → adapters/voice → VoiceTurn → handleVoiceTurn → handle
 ```
 
 - **Vapi** is the interaction adapter (first inbound implementation).
-- **Agent Runtime** owns the demo agent (`runtime-demo`): prompt, LLM port, tool allowlist, traces.
+- **Agent Runtime** owns session-owner agents (`runtime-demo` by default, optional `wom-customer-service-agent` via `VOICE_SESSION_OWNER`): prompt, LLM port, tool allowlist bound on the production tool port and on `handleAgentTurn`, traces.
 - **Domain** stays provider independent. Placeholder success is no longer the voice happy path.
 
 Media / channel identity (`externalChannelId`) is not business state. This increment does not persist `Session` or `ConversationTurn` tables.
@@ -69,7 +70,9 @@ This increment executes no product side effects. Later tools MUST declare a risk
 
 No multi-agent topology, production knowledge base, Graph RAG, LangGraph domain, Langfuse SDK, runtime MCP, outbound calling, or Session/Conversation/Document/Chunk/EvaluationRun tables. Canonical `lidr-specboot/docs/api-spec.yml` `/sessions`, `/tools/{toolName}/invoke`, `/knowledge/documents`, `/knowledge/query`, and `/evaluations/runs` remain unimplemented.
 
-See [knowledge.md](./knowledge.md), [agents/runtime-demo.md](./agents/runtime-demo.md), and [evaluation-gate.md](./evaluation-gate.md).
+See [knowledge.md](./knowledge.md), [agents/runtime-demo.md](./agents/runtime-demo.md), [agents/wom-customer-service-agent.md](./agents/wom-customer-service-agent.md), and [evaluation-gate.md](./evaluation-gate.md).
+
+The WOM path is a **simulated** customer-service environment. It does not call WOM APIs. Web UI (HU #010), persistence/observability UI (HU #011), and public evaluation/deploy (HU #012) are deferred.
 
 ## Local network and health
 
