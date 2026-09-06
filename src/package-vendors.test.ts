@@ -19,6 +19,8 @@ const FORBIDDEN_DEPENDENCIES = [
   "chromadb",
   "@qdrant/js-client-rest",
   "voyageai",
+  "promptfoo",
+  "deepeval",
 ];
 
 describe("dependency allowlist", () => {

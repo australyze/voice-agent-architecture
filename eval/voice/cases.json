@@ -1,5 +1,6 @@
 {
   "suiteName": "vapi-voice-interaction-adapter-voice",
+  "datasetVersion": "2026-09-05.1",
   "requiresLiveTelephony": false,
   "cases": [
     {

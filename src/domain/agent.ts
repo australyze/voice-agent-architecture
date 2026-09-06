@@ -7,6 +7,7 @@ export const AGENT_ERROR_CODES = {
   LLM_TIMEOUT: "llm_timeout",
   LLM_PROVIDER: "llm_provider",
   RETRIEVAL_FAILED: "retrieval_failed",
+  SENSITIVE_OUTPUT: "sensitive_output",
 } as const;
 
 export type AgentErrorCode = (typeof AGENT_ERROR_CODES)[keyof typeof AGENT_ERROR_CODES];
@@ -20,6 +21,7 @@ export const SAFE_AGENT_MESSAGES: Record<AgentErrorCode, string> = {
   llm_timeout: "The model timed out",
   llm_provider: "The model provider failed",
   retrieval_failed: "Retrieval failed",
+  sensitive_output: "The reply contained sensitive output",
 };
 
 export type AgentDecision = {

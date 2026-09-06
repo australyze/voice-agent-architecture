@@ -26,6 +26,8 @@ const FORBIDDEN_CORE_IMPORTS = [
   /chromadb/i,
   /qdrant/i,
   /voyageai/i,
+  /promptfoo/i,
+  /deepeval/i,
 ];
 
 function walk(directory: string): string[] {
