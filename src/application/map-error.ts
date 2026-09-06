@@ -50,13 +50,17 @@ export function statusCodeForErrorCode(code: string): number {
 export function mapErrorToEnvelope(error: unknown): MappedError {
   if (error instanceof AppError) {
     const statusCode =
-      isVoiceErrorCode(error.code) || isOrchestrationErrorCode(error.code)
-        ? statusCodeForErrorCode(error.code)
-        : error.kind === "dependency"
-          ? 503
-          : error.kind === "config"
-            ? 500
-            : 500;
+      error.code === "SESSION_NOT_FOUND"
+        ? 404
+        : error.code === "SESSION_ID_INVALID"
+          ? 400
+          : isVoiceErrorCode(error.code) || isOrchestrationErrorCode(error.code)
+            ? statusCodeForErrorCode(error.code)
+            : error.kind === "dependency"
+              ? 503
+              : error.kind === "config"
+                ? 500
+                : 500;
     return {
       statusCode,
       body: {

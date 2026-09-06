@@ -28,6 +28,22 @@ export function resolveDemoOrchestrateSecret(voice: VoiceConfig): string | undef
   return voice.demoOrchestrateSecret ?? voice.inboundSecret;
 }
 
+export function authenticateSessionHistory(voice: VoiceConfig, provided: string | undefined): void {
+  const secret = resolveDemoOrchestrateSecret(voice);
+  if (secret === undefined || secret === "") {
+    throw new OrchestrationBoundaryError(
+      ORCHESTRATION_ERROR_CODES.CONFIG,
+      adapterSafeOrchestrationMessage(ORCHESTRATION_ERROR_CODES.CONFIG),
+    );
+  }
+  if (provided === undefined || !secretsMatch(secret, provided)) {
+    throw new OrchestrationBoundaryError(
+      ORCHESTRATION_ERROR_CODES.UNAUTHORIZED,
+      adapterSafeOrchestrationMessage(ORCHESTRATION_ERROR_CODES.UNAUTHORIZED),
+    );
+  }
+}
+
 export function authenticateDemoOrchestrate(
   secret: string | undefined,
   provided: string | undefined,

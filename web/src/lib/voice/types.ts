@@ -8,7 +8,7 @@ export type ConversationMessage = {
 };
 
 export type VoiceMediaEvent =
-  | { type: "call-start" }
+  | { type: "call-start"; externalChannelId?: string }
   | { type: "call-end" }
   | { type: "transcript"; message: ConversationMessage }
   | { type: "tool-activity"; label: string }

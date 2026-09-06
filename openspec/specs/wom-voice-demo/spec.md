@@ -75,7 +75,7 @@ The demonstration UI MUST represent exactly these call states: `idle`, `connecti
 #### Scenario: Completed shows a client-side summary
 
 - **WHEN** the media client reports the call has ended after a started call
-- **THEN** the UI is `completed` and shows that the conversation finished, duration if known, visible turn or message count if known, and a placeholder for later traceability that states detailed execution data is not available yet
+- **THEN** the UI is `completed` and shows that the conversation finished, duration if known, visible turn or message count if known, and a traceability area that either confirms a backend session report was retrieved or states that backend history is unavailable
 
 ### Requirement: Live transcript is normalized and ephemeral
 
@@ -141,3 +141,31 @@ The demonstration frontend MAY be configured with a voice-provider public key, a
 
 - **WHEN** the frontend automated suite runs
 - **THEN** it uses a test double for the media client and does not contact a paid voice provider or require a microphone
+
+### Requirement: Completed call may fetch a thin session report
+
+After the media client reports call-end, the demonstration UI MAY request `GET /sessions/{sessionId}` or `GET /sessions?externalChannelId=` through the public backend base URL when a provider-independent session or channel id is known. The request MUST send the demo-operator secret header. The UI MUST NOT call `GET /sessions?limit=1` (or any unfiltered latest-session list) to choose a report. On success it MUST show that a backend report exists (at minimum status or turn count from the API). On missing configuration, missing channel identity, network failure, 401, or empty history it MUST show a safe unavailable state. It MUST NOT render the full HU #012 observability or evaluation UI. Live transcript during `active` MUST continue to come from the media client, not from this fetch.
+
+#### Scenario: Report loads after hang-up
+
+- **WHEN** the UI is `completed` and the public backend base URL is configured and the report request succeeds
+- **THEN** the completed surface replaces the persistence-unavailable placeholder with confirmation that backend history was retrieved
+
+#### Scenario: Report unavailable is honest
+
+- **WHEN** the UI is `completed` and the backend base URL is missing, the channel identity is unknown, or the report request fails
+- **THEN** the UI states that detailed backend history is unavailable and does not invent transcript or tool rows from a failed fetch
+
+#### Scenario: Latest-global list is not used as identity
+
+- **WHEN** the UI is `completed` and no `sessionId` or `externalChannelId` is known
+- **THEN** the UI does not request `GET /sessions?limit=1` and shows the unavailable state
+
+### Requirement: Browser never receives persistence admin credentials
+
+The demonstration frontend MUST NOT contain, document, or bundle a hosted-persistence service-role key, database password, or private database URL. Session history MUST be read only through the backend HTTP API.
+
+#### Scenario: Frontend env example has no service-role key
+
+- **WHEN** a reviewer inspects the documented frontend environment example
+- **THEN** it does not include a service-role key, database password, or private database URL

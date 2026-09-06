@@ -14,6 +14,7 @@ export type VoiceAgentView = {
   durationSeconds: number;
   error: string | null;
   toolActivity: string | null;
+  externalChannelId: string | null;
   startCall: () => Promise<void>;
   endCall: () => Promise<void>;
 };
@@ -24,6 +25,7 @@ export function useVoiceAgent(client: VoiceMediaClient): VoiceAgentView {
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [toolActivity, setToolActivity] = useState<string | null>(null);
+  const [externalChannelId, setExternalChannelId] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const becameActiveRef = useRef(false);
   const callStateRef = useRef<CallState>("idle");
@@ -55,6 +57,7 @@ export function useVoiceAgent(client: VoiceMediaClient): VoiceAgentView {
         clearConnectingTimer();
         becameActiveRef.current = true;
         startedAtRef.current = Date.now();
+        setExternalChannelId(event.externalChannelId ?? null);
         setCallState("active");
         return;
       }
@@ -103,6 +106,7 @@ export function useVoiceAgent(client: VoiceMediaClient): VoiceAgentView {
     setError(null);
     setTranscript([]);
     setToolActivity(null);
+    setExternalChannelId(null);
     setDurationSeconds(0);
     becameActiveRef.current = false;
     startedAtRef.current = null;
@@ -142,9 +146,10 @@ export function useVoiceAgent(client: VoiceMediaClient): VoiceAgentView {
       durationSeconds,
       error,
       toolActivity,
+      externalChannelId,
       startCall,
       endCall,
     }),
-    [callState, transcript, durationSeconds, error, toolActivity, startCall, endCall],
+    [callState, transcript, durationSeconds, error, toolActivity, externalChannelId, startCall, endCall],
   );
 }

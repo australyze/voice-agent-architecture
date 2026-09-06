@@ -5,7 +5,7 @@ import { createServer } from "../../src/adapters/http/create-server.js";
 import { VOICE_INBOUND_SECRET_HEADER } from "../../src/adapters/voice/inbound.js";
 import { defaultDemoReplyForLocale } from "../../src/adapters/llm/fake-llm.js";
 import type { LoggerPort } from "../../src/domain/ports/logger-port.js";
-import type { PersistencePort } from "../../src/domain/ports/persistence-port.js";
+import { MemoryPersistence } from "../../src/adapters/persistence/memory-persistence.js";
 
 type VoiceCase = {
   id: string;
@@ -43,7 +43,7 @@ describe(suite.suiteName, () => {
   for (const voiceCase of suite.cases) {
     it(`should_pass_${voiceCase.id}`, async () => {
       const server = await createServer({
-        persistence: { async ping() {} } satisfies PersistencePort,
+        persistence: new MemoryPersistence(),
         logger: { log() {} } satisfies LoggerPort,
         voice: voiceCase.configured
           ? { inboundSecret: "eval-secret", timeoutMs: 2000, defaultLocale: "es" }

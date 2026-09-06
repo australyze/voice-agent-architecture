@@ -7,6 +7,8 @@ info:
     lidr-specboot/docs/api-spec.yml. The Vapi-facing URL is
     POST /adapters/voice/inbound, not /ingress/interaction.
     Multi-agent demo ingress is POST /demo/orchestrate.
+    Session history reads are GET /sessions and GET /sessions/{sessionId}
+    (canonical resources in lidr-specboot/docs/api-spec.yml).
   version: 0.3.0
 servers:
   - url: http://localhost:3000
@@ -123,6 +125,83 @@ paths:
         "503":
           $ref: "#/components/responses/Error"
         "504":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /sessions:
+    get:
+      summary: List recent persisted voice sessions
+      operationId: listSessions
+      parameters:
+        - in: header
+          name: x-demo-orchestrate-secret
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: externalChannelId
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lightweight session list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /sessions/{sessionId}:
+    get:
+      summary: Get a persisted session report
+      operationId: getSession
+      parameters:
+        - in: header
+          name: x-demo-orchestrate-secret
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Provider-independent session report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessionId, evaluation]
+                properties:
+                  evaluation:
+                    nullable: true
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "503":
           $ref: "#/components/responses/Error"
         "500":
           $ref: "#/components/responses/Error"

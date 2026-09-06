@@ -66,5 +66,4 @@ Interviewers start a browser call from `web/` using the Vapi Web SDK. The runtim
 
 ## Deferred
 
-- HU #011 — Supabase persistence + observability UI
-- HU #012 — broader evaluation + public deployment
+- HU #012 — evaluation UI, scores, visual trace explorer, public deployment

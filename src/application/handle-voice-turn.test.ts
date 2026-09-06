@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { DependencyError } from "../domain/errors.js";
+import { MemoryPersistence } from "../adapters/persistence/memory-persistence.js";
 import { defaultDemoReplyForLocale } from "../adapters/llm/fake-llm.js";
 import { MemoryObservability } from "../adapters/observability/memory-observability.js";
 import { AGENT_ERROR_CODES } from "../domain/agent.js";
@@ -32,7 +34,6 @@ function validTurn(overrides: Partial<VoiceTurn> = {}): VoiceTurn {
 describe("handleVoiceTurn", () => {
   it("should_return_agent_reply_text_not_placeholder_copy", async () => {
     const logger = memoryLogger();
-    const persistenceWrite = vi.fn();
     const replyText = defaultDemoReplyForLocale("es");
     const runAgent = vi.fn(async () => ({
       ok: true as const,
@@ -53,7 +54,29 @@ describe("handleVoiceTurn", () => {
       expect(first.reply.text).not.toContain("mensaje de prueba del runtime");
     }
     expect(runAgent).toHaveBeenCalled();
-    expect(persistenceWrite).not.toHaveBeenCalled();
+  });
+
+  it("should_keep_the_spoken_reply_when_persistence_fails", async () => {
+    const logger = memoryLogger();
+    const persistence = new MemoryPersistence();
+    persistence.upsertSession = async () => {
+      throw new DependencyError("Persistence is unavailable", "PERSISTENCE_UNAVAILABLE");
+    };
+    const result = await handleVoiceTurn(validTurn(), {
+      locale: "es",
+      timeoutMs: 2000,
+      logger,
+      persistence,
+      runAgent: async () => ({
+        ok: true,
+        replyText: defaultDemoReplyForLocale("es"),
+        locale: "es",
+        status: "ok",
+        sources: [],
+      }),
+    });
+    expect(result.ok).toBe(true);
+    expect(logger.events.some((event) => event.errorCode === "PERSISTENCE_UNAVAILABLE")).toBe(true);
   });
 
   it("should_keep_external_channel_id_opaque_and_not_use_it_as_session_id", async () => {

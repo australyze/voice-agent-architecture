@@ -7,6 +7,8 @@ import type { VoiceConfig } from "../../application/load-config.js";
 
 export const VOICE_INBOUND_SECRET_HEADER = "x-voice-inbound-secret";
 export const SUPPORTED_VOICE_EVENT = "transcript";
+export const LIFECYCLE_VOICE_EVENTS = ["call_started", "call_ended"] as const;
+export const SUPPORTED_VOICE_EVENTS = [SUPPORTED_VOICE_EVENT, ...LIFECYCLE_VOICE_EVENTS] as const;
 export const MAX_INPUT_TEXT_CHARS = 4096;
 export const MAX_CORRELATION_CHARS = 128;
 export const MAX_EVENT_TYPE_CHARS = 64;
@@ -95,18 +97,19 @@ export function mapInboundToVoiceTurn(body: unknown): VoiceTurn {
     throw new VoiceBoundaryError(VOICE_ERROR_CODES.SESSION_INVALID, "Session identifier is invalid");
   }
 
-  if (parsed.data.eventType !== SUPPORTED_VOICE_EVENT) {
+  if (!(SUPPORTED_VOICE_EVENTS as readonly string[]).includes(parsed.data.eventType)) {
     throw new VoiceBoundaryError(VOICE_ERROR_CODES.EVENT_UNSUPPORTED, "Voice event is not supported");
   }
 
-  if (parsed.data.inputText === undefined || parsed.data.inputText.trim() === "") {
+  const isLifecycle = parsed.data.eventType === "call_started" || parsed.data.eventType === "call_ended";
+  if (!isLifecycle && (parsed.data.inputText === undefined || parsed.data.inputText.trim() === "")) {
     throw new VoiceBoundaryError(VOICE_ERROR_CODES.PAYLOAD_INVALID, "Voice inbound payload is invalid");
   }
 
   const turn: VoiceTurn = {
     sessionId: parsed.data.sessionId ?? randomUUID(),
     eventType: parsed.data.eventType,
-    inputText: parsed.data.inputText,
+    inputText: parsed.data.inputText ?? "",
     occurredAt: new Date(parsed.data.occurredAt),
   };
   if (parsed.data.externalChannelId !== undefined) {

@@ -20,9 +20,9 @@ The adapter accepts a **strict** JSON object. Extra vendor fields are rejected (
 
 | Field | Required | Max | Internal mapping |
 | --- | --- | --- | --- |
-| `eventType` | yes | 64 | `VoiceTurn.eventType`. Only `transcript` is supported. |
+| `eventType` | yes | 64 | `VoiceTurn.eventType`. Supported: `transcript`, `call_started`, `call_ended`. |
 | `occurredAt` | yes | — | `VoiceTurn.occurredAt`. Must be fresh (see authentication). |
-| `inputText` | yes for `transcript` | 4096 | `VoiceTurn.inputText` |
+| `inputText` | yes for `transcript` | 4096 | `VoiceTurn.inputText`. Optional empty for lifecycle events. |
 | `sessionId` | no | UUID (36) | Internal session UUID; minted when omitted. Non-UUID is `VOICE_SESSION_INVALID`. |
 | `externalChannelId` | no | 128 | Opaque provider call/conversation id |
 | `interactionId` | no | 128 | Correlation |
@@ -31,6 +31,10 @@ The adapter accepts a **strict** JSON object. Extra vendor fields are rejected (
 Request body limit: **16 KiB**. Larger bodies are rejected (`VOICE_PAYLOAD_INVALID`) without invoking the runtime.
 
 Vendor-native names (assistant object, call object, tool call payloads) must not appear in `src/domain` or `src/application`.
+
+Inspected Vapi Server URL mapping for this increment: the runtime still accepts the **simulator contract** above. Live Vapi assistant/server events that do not already match `{ eventType, occurredAt, inputText?, sessionId?, externalChannelId?, interactionId?, requestId? }` are **unsupported** (`VOICE_EVENT_UNSUPPORTED`). Do not invent a second vendor payload parser in domain. If a later adapter maps Vapi `end-of-call-report` or status events, translate them to `call_ended` / `call_started` here only.
+
+Lifecycle events persist session start/end and do **not** invoke the agent. Transcript events persist after the spoken reply. Live browser transcript remains the Vapi Web SDK path; PostgreSQL is historical only. See [persistence.md](../persistence.md).
 
 ## Success response
 

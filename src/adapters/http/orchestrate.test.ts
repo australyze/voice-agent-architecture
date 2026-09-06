@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { LoggerPort } from "../../domain/ports/logger-port.js";
-import type { PersistencePort } from "../../domain/ports/persistence-port.js";
+import { MemoryPersistence } from "../persistence/memory-persistence.js";
 import { INBOUND_BODY_LIMIT_BYTES } from "../voice/inbound.js";
 import { FakeLlm } from "../llm/fake-llm.js";
 import { MemoryObservability } from "../observability/memory-observability.js";
@@ -15,7 +15,7 @@ function silentLogger(): LoggerPort {
 describe("demo orchestrate HTTP", () => {
   it("should_return_success_dto_for_normalize_and_classify", async () => {
     const server = await createServer({
-      persistence: { async ping() {} } satisfies PersistencePort,
+      persistence: new MemoryPersistence(),
       logger: silentLogger(),
       llm: new FakeLlm([
         { kind: "specialist-normalize", replyText: "normalized", normalizedText: "hello" },
@@ -37,7 +37,7 @@ describe("demo orchestrate HTTP", () => {
     await server.close();
 
     const classifyServer = await createServer({
-      persistence: { async ping() {} } satisfies PersistencePort,
+      persistence: new MemoryPersistence(),
       logger: silentLogger(),
       llm: new FakeLlm([{ kind: "specialist-classify", replyText: "labeled", label: "greeting" }]),
     });
@@ -57,7 +57,7 @@ describe("demo orchestrate HTTP", () => {
 
   it("should_return_canonical_unroutable_envelope_and_leave_sessions_unimplemented", async () => {
     const server = await createServer({
-      persistence: { async ping() {} } satisfies PersistencePort,
+      persistence: new MemoryPersistence(),
       logger: silentLogger(),
     });
     const unroutable = await server.inject({
@@ -85,7 +85,7 @@ describe("demo orchestrate HTTP", () => {
   it("should_emit_http_and_orchestration_spans_on_one_trace", async () => {
     const observability = new MemoryObservability();
     const server = await createServer({
-      persistence: { async ping() {} } satisfies PersistencePort,
+      persistence: new MemoryPersistence(),
       logger: silentLogger(),
       observability,
       llm: new FakeLlm([{ kind: "specialist-normalize", replyText: "a", normalizedText: "a" }]),
@@ -119,7 +119,7 @@ describe("demo orchestrate HTTP", () => {
   it("should_reject_unauthenticated_oversize_empty_and_invalid_session", async () => {
     const llm = new FakeLlm([{ kind: "specialist-normalize", replyText: "normalized", normalizedText: "hello" }]);
     const server = await createServer({
-      persistence: { async ping() {} } satisfies PersistencePort,
+      persistence: new MemoryPersistence(),
       logger: silentLogger(),
       voice: {
         inboundSecret: "demo-secret",
@@ -189,7 +189,7 @@ describe("demo orchestrate HTTP", () => {
   it("should_fail_closed_when_http_llm_has_no_demo_secret", async () => {
     const llm = new FakeLlm([{ kind: "specialist-normalize", replyText: "x", normalizedText: "x" }]);
     const server = await createServer({
-      persistence: { async ping() {} } satisfies PersistencePort,
+      persistence: new MemoryPersistence(),
       logger: silentLogger(),
       llmConfig: {
         mode: "http",

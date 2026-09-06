@@ -20,7 +20,7 @@ Vapi Server URL
 
 Do not register customer-service tools as client-side Vapi tools. Do not put the inbound shared secret or a private API key in the browser.
 
-Microphone audio is sent to the voice provider so it can transcribe and synthesize speech. The provider may process or retain that audio under its own terms. This application does not persist audio or transcripts (HU #011 will add durable traces).
+Microphone audio is sent to the voice provider so it can transcribe and synthesize speech. The provider may process or retain that audio under its own terms. This application does not persist microphone audio. Backend session history (transcript text, tools, execution events) is stored through the persistence port after inbound processing (HU #011). Live UI transcript still comes from the media client.
 
 Restrict the Vapi public key to the demo origin in the Vapi dashboard. Do not publish interview public keys in docs, screenshots, or the repository. HU #012 reopens public-key and deployment risk if the demo is hosted more broadly.
 
@@ -30,7 +30,8 @@ Copy `web/.env.example` to `web/.env` (gitignored):
 
 - `VITE_VAPI_PUBLIC_KEY` — Vapi public key only
 - `VITE_VAPI_ASSISTANT_ID` — assistant that uses this repo’s Server URL
-- `VITE_PUBLIC_API_BASE_URL` — optional; unused for agent turns in this HU
+- `VITE_PUBLIC_API_BASE_URL` — optional backend origin for completed-call history
+- `VITE_DEMO_ORCHESTRATE_SECRET` — demo-operator header for `GET /sessions`; same value as `DEMO_ORCHESTRATE_SECRET` or `VOICE_INBOUND_SECRET`. Never a hosted persistence admin key.
 
 ## Local run
 
@@ -55,9 +56,9 @@ Automated tests: `npm run web:test` (mocked media client, no microphone, no paid
 7. Say “¿Cuántos gigas me quedan?” then “¿Cuánto tengo que pagar este mes?”
 8. Confirm spoken replies and a live transcript.
 9. **Finalizar conversación** and confirm the client-side summary.
-10. Explain that HU #011 will persist traces, tool timings, and call history.
+10. After hang-up, the completed card fetches history only when the media client provided a provider-independent `externalChannelId` (or session id) **and** `VITE_PUBLIC_API_BASE_URL` plus `VITE_DEMO_ORCHESTRATE_SECRET` are set. It must not call `GET /sessions?limit=1`. Full evaluation UI is HU #012.
 
 ## Deferred
 
-- HU #011 — persistence, call history, full execution trace UI
+- HU #012 — evaluation UI, scores, visual trace explorer, public deploy
 - HU #012 — broader evaluation and public deployment

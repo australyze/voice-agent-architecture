@@ -1,14 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { LoggerPort } from "../../domain/ports/logger-port.js";
-import type { PersistencePort } from "../../domain/ports/persistence-port.js";
+import { readyPersistence } from "../persistence/test-persistence.js";
 import { createServer } from "./create-server.js";
 
 function silentLogger(): LoggerPort {
   return { log() {} };
-}
-
-function readyPersistence(): PersistencePort {
-  return { async ping() {} };
 }
 
 describe("voice health diagnostic", () => {

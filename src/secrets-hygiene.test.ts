@@ -29,6 +29,8 @@ describe("secret hygiene", () => {
     expect(example).toContain("LLM_API_KEY=");
     expect(example).toContain("LLM_MODEL_ID=fake");
     expect(example).toContain("LLM_TIMEOUT_MS=1500");
+    expect(example).toContain("SUPABASE_URL=");
+    expect(example).toContain("SUPABASE_SERVICE_ROLE_KEY=");
     expect(example).not.toMatch(/sk-[A-Za-z0-9]/);
     expect(example).not.toMatch(/AKIA[0-9A-Z]{16}/);
     expect(example).not.toMatch(/hf_[A-Za-z0-9]{10,}/);

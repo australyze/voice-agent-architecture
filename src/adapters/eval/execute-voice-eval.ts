@@ -4,7 +4,7 @@ import { createServer } from "../http/create-server.js";
 import { VOICE_INBOUND_SECRET_HEADER } from "../voice/inbound.js";
 import type { EvaluationScore } from "../../domain/evaluation.js";
 import type { LoggerPort } from "../../domain/ports/logger-port.js";
-import type { PersistencePort } from "../../domain/ports/persistence-port.js";
+import { MemoryPersistence } from "../persistence/memory-persistence.js";
 
 export type VoiceEvalCase = {
   id: string;
@@ -47,12 +47,12 @@ export async function executeVoiceEval(root = process.cwd()): Promise<{
   for (const voiceCase of suite.cases) {
     const server = voiceCase.configured
       ? await createServer({
-          persistence: { async ping() {} } satisfies PersistencePort,
+          persistence: new MemoryPersistence(),
           logger: { log() {} } satisfies LoggerPort,
           voice: { inboundSecret: "eval-secret", timeoutMs: 2000, defaultLocale: "es" },
         })
       : await createServer({
-          persistence: { async ping() {} } satisfies PersistencePort,
+          persistence: new MemoryPersistence(),
           logger: { log() {} } satisfies LoggerPort,
         });
     const response = await server.inject({
