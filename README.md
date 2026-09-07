@@ -69,8 +69,10 @@ Inbound voice (authenticated when configured):
 
 - `POST /adapters/voice/inbound` — simulator/Vapi-facing adapter. Not `/ingress/interaction`. Still `runtime-demo` only.
 - `POST /demo/orchestrate` — closed-intent multi-agent demo (`normalize` \| `classify`). Send `x-demo-orchestrate-secret` when `DEMO_ORCHESTRATE_SECRET` or `VOICE_INBOUND_SECRET` is set. See [docs/agents/runtime-orchestrator.md](docs/agents/runtime-orchestrator.md).
-- `GET /sessions` — recent persisted voice sessions (requires `x-demo-orchestrate-secret`)
-- `GET /sessions/{sessionId}` — session report (`evaluation` is reserved/null for HU #012; same secret)
+- `GET /sessions` — recent persisted voice sessions (operator secret, or `x-demo-public-token` with required `externalChannelId`)
+- `GET /sessions/{sessionId}` — session report including deterministic call evaluation when terminal; auth via operator secret or `DEMO_PUBLIC_TOKEN` (`x-demo-public-token` only). `?recompute=true` is operator-only.
+- Public deploy notes: [docs/public-demo-deploy.md](docs/public-demo-deploy.md)
+- Call evaluation design: [docs/evaluation-call.md](docs/evaluation-call.md)
 
 Session history setup: [docs/persistence.md](./docs/persistence.md).
 

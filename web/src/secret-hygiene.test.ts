@@ -28,7 +28,7 @@ describe("frontend secret hygiene", () => {
     expect(example).toContain("VITE_VAPI_PUBLIC_KEY=");
     expect(example).toContain("VITE_VAPI_ASSISTANT_ID=");
     expect(example).toContain("VITE_PUBLIC_API_BASE_URL=");
-    expect(example).toContain("VITE_DEMO_ORCHESTRATE_SECRET=");
+    expect(example).not.toContain("VITE_DEMO_ORCHESTRATE_SECRET=");
     expect(example).not.toContain("VOICE_INBOUND_SECRET");
     expect(example).not.toContain("VOICE_PROVIDER_API_KEY");
     expect(example).not.toContain("DATABASE_URL");

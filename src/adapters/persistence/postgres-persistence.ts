@@ -58,4 +58,8 @@ export class PostgresPersistence implements PersistencePort {
   getSessionReport(sessionId: string) {
     return this.history.getSessionReport(sessionId);
   }
+
+  saveSessionEvaluation(sessionId: string, evaluation: import("../../domain/session-call-evaluation.js").SessionCallEvaluation) {
+    return this.history.saveSessionEvaluation(sessionId, evaluation);
+  }
 }

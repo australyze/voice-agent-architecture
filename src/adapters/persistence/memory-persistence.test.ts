@@ -73,6 +73,47 @@ describe("MemoryPersistence", () => {
     ]);
   });
 
+  it("should_round_trip_session_call_evaluation", async () => {
+    const persistence = new MemoryPersistence();
+    await persistence.upsertSession({
+      sessionId: SESSION_ID,
+      agentId: "wom-customer-service-agent",
+      eventType: "call_ended",
+      occurredAt: ENDED,
+      idempotencyKey: "end-eval",
+    });
+    const evaluation = {
+      overallStatus: "passed" as const,
+      scorerVersion: "session-call-eval/1.0.0",
+      evaluatedAt: ENDED,
+      dimensions: [
+        {
+          id: "goal_achieved" as const,
+          verdict: "met" as const,
+          evidence: [{ kind: "session" as const, note: "fixture" }],
+        },
+        {
+          id: "tool_selection" as const,
+          verdict: "met" as const,
+          evidence: [{ kind: "session" as const, note: "fixture" }],
+        },
+        {
+          id: "grounded_answer" as const,
+          verdict: "met" as const,
+          evidence: [{ kind: "session" as const, note: "fixture" }],
+        },
+        {
+          id: "policy_compliance" as const,
+          verdict: "met" as const,
+          evidence: [{ kind: "session" as const, note: "fixture" }],
+        },
+      ],
+    };
+    await persistence.saveSessionEvaluation(SESSION_ID, evaluation);
+    const report = await persistence.getSessionReport(SESSION_ID);
+    expect(report?.evaluation).toEqual(evaluation);
+  });
+
   it("should_treat_duplicate_start_end_and_event_keys_as_idempotent", async () => {
     const persistence = new MemoryPersistence();
     const startKey = inboundIdempotencyKey({

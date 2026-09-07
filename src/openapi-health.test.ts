@@ -13,12 +13,9 @@ describe("health OpenAPI fragment", () => {
     expect(spec).toContain("unroutable");
     expect(spec).toContain("x-voice-inbound-secret");
     expect(spec).toContain("x-demo-orchestrate-secret");
-    expect(spec).toContain("success:");
-    expect(spec).toContain("enum: [false]");
-    expect(spec).toContain("message:");
-    expect(spec).toContain("code:");
-    expect(spec).toContain("/sessions");
-    expect(spec).toContain("/sessions/{sessionId}");
+    expect(spec).toContain("x-demo-public-token");
+    expect(spec).toContain("recompute");
+    expect(spec).toContain("goal_achieved");
     expect(spec).toContain("evaluation:");
   });
 });

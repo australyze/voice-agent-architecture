@@ -27,19 +27,17 @@ During a call the interviewer hears and sees media from the Vapi Web SDK. After 
 ## Security
 
 - Tables enable row-level security with **no** anonymous policies. The service role (backend) bypasses RLS. RLS and `LISTEN_HOST=127.0.0.1` do **not** authorize HTTP reads.
-- Session-history GETs require `x-demo-orchestrate-secret`. Missing server secret is 503; wrong or missing header is 401. A reachable history GET is a transcript disclosure channel.
-- The browser may call those routes only with `VITE_DEMO_ORCHESTRATE_SECRET` (demo-operator secret, never `SUPABASE_SERVICE_ROLE_KEY`).
+- Session-history GETs require `x-demo-orchestrate-secret` (operator) or `x-demo-public-token` (`DEMO_PUBLIC_TOKEN`). Missing server secret is 503; wrong or missing credentials is 401. Public list requires `externalChannelId`. A reachable history GET is a transcript disclosure channel.
+- The browser may call those routes only after the interviewer enters `DEMO_PUBLIC_TOKEN` as a passcode (`x-demo-public-token`). Never put inbound, operator, or service-role secrets in `web/` env.
+- `GET /sessions` — recent lightweight list; optional `externalChannelId` filter; public token **requires** `externalChannelId`
+- `GET /sessions/{sessionId}` — report; `?recompute=true` is **operator-only**
 - Transcripts may contain spoken content. This demo stores **synthetic** data for the **demo lifetime**. There is no retention sweeper.
 
 ## API
 
-- `GET /sessions` — recent lightweight list; optional `externalChannelId` filter; requires demo-operator secret
-- `GET /sessions/{sessionId}` — report with transcript, tool calls, chronological trace, metrics, and `evaluation: null`; same secret
+- `GET /sessions` — recent lightweight list; operator may omit filter; public token **requires** `externalChannelId`
+- `GET /sessions/{sessionId}` — report with transcript, tool calls, chronological trace, metrics, and session call `evaluation` (null while non-terminal or when public read before persist); `?recompute=true` is **operator-only**
 
-See `openapi/health.yaml` and `lidr-specboot/docs/api-spec.yml` session resources.
-
-## Deferred to HU #012
-
-Evaluation scores, LLM-as-judge, visual execution explorer, and a dedicated call-history page. The report reserves `evaluation: null` for that work.
+See `openapi/health.yaml`, [evaluation-call.md](./evaluation-call.md), and [public-demo-deploy.md](./public-demo-deploy.md).
 
 `lidr-specboot/docs/` methodology was not changed.

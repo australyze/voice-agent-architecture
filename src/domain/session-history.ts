@@ -1,3 +1,4 @@
+import type { SessionCallEvaluation } from "./session-call-evaluation.js";
 import type { SpanKind } from "./ports/observability-port.js";
 
 export const SESSION_BUSINESS_STATUSES = ["initiated", "active", "completed", "failed"] as const;
@@ -25,6 +26,7 @@ export type SessionRecord = {
   durationMs?: number;
   createdAt: string;
   updatedAt: string;
+  evaluation?: SessionCallEvaluation | null;
 };
 
 export type ConversationTurnRecord = {
@@ -99,7 +101,7 @@ export type SessionReport = {
   transcript: Array<{ id: string; role: ConversationRole; text: string; timestamp: string }>;
   toolCalls: ToolCallRecord[];
   trace: ExecutionEventRecord[];
-  evaluation: null;
+  evaluation: SessionCallEvaluation | null;
 };
 
 export type UpsertSessionInput = {

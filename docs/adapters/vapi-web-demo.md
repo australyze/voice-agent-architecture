@@ -31,7 +31,7 @@ Copy `web/.env.example` to `web/.env` (gitignored):
 - `VITE_VAPI_PUBLIC_KEY` — Vapi public key only
 - `VITE_VAPI_ASSISTANT_ID` — assistant that uses this repo’s Server URL
 - `VITE_PUBLIC_API_BASE_URL` — optional backend origin for completed-call history
-- `VITE_DEMO_ORCHESTRATE_SECRET` — demo-operator header for `GET /sessions`; same value as `DEMO_ORCHESTRATE_SECRET` or `VOICE_INBOUND_SECRET`. Never a hosted persistence admin key.
+- Do **not** set `VITE_DEMO_ORCHESTRATE_SECRET` or bake `VOICE_INBOUND_SECRET` / `DEMO_ORCHESTRATE_SECRET` into the browser. Interviewers enter `DEMO_PUBLIC_TOKEN` as the on-screen passcode (`x-demo-public-token`).
 
 ## Local run
 
@@ -56,9 +56,9 @@ Automated tests: `npm run web:test` (mocked media client, no microphone, no paid
 7. Say “¿Cuántos gigas me quedan?” then “¿Cuánto tengo que pagar este mes?”
 8. Confirm spoken replies and a live transcript.
 9. **Finalizar conversación** and confirm the client-side summary.
-10. After hang-up, the completed card fetches history only when the media client provided a provider-independent `externalChannelId` (or session id) **and** `VITE_PUBLIC_API_BASE_URL` plus `VITE_DEMO_ORCHESTRATE_SECRET` are set. It must not call `GET /sessions?limit=1`. Full evaluation UI is HU #012.
+10. After hang-up, enter the demo passcode (`DEMO_PUBLIC_TOKEN`). The UI sends `x-demo-public-token` and lists only by the call’s `externalChannelId` (never a global latest list). Evaluation renders from the persisted report. Recompute is operator-only (not available in the public UI).
 
-## Deferred
+## Out of scope here
 
-- HU #012 — evaluation UI, scores, visual trace explorer, public deploy
-- HU #012 — broader evaluation and public deployment
+- Visual execution explorer / dedicated call-history browser
+- LLM-as-judge or merging with the offline quality gate

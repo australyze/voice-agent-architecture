@@ -10,7 +10,10 @@ import { Alert } from "@/components/ui/alert";
 import { createUnconfiguredClient } from "@/lib/voice/create-unconfigured-client";
 import { createVapiMediaClient } from "@/lib/voice/create-vapi-client";
 import { useVoiceAgent } from "@/lib/voice/use-voice-agent";
-import { fetchSessionReportByChannelId } from "@/lib/api/session-report";
+import {
+  fetchSessionReportByChannelId,
+  type SessionCallEvaluation,
+} from "@/lib/api/session-report";
 import { MICROPHONE_CONSENT, type VoiceMediaClient } from "@/lib/voice/types";
 
 function formatDuration(totalSeconds: number): string {
@@ -38,23 +41,49 @@ export function DemoApp({ mediaClient }: DemoAppProps) {
   const client = useMemo(() => mediaClient ?? clientFromEnv(), [mediaClient]);
   const voice = useVoiceAgent(client);
   const [hint, setHint] = useState("Prueba una experiencia de atención al cliente impulsada por IA y voz.");
-  const [reportState, setReportState] = useState<"loading" | "loaded" | "unavailable">("unavailable");
+  const [reportState, setReportState] = useState<"loading" | "loaded" | "unavailable" | "needs_passcode">(
+    "unavailable",
+  );
+  const [evaluation, setEvaluation] = useState<SessionCallEvaluation | null>(null);
+  const [passcode, setPasscode] = useState("");
+  const [manualSecret, setManualSecret] = useState<string | null>(null);
+
+  async function loadReport(options?: { secretOverride?: string }) {
+    const baseUrl = import.meta.env.VITE_PUBLIC_API_BASE_URL;
+    const channelId = voice.externalChannelId;
+    // Never bake operator/inbound write secrets into the browser. Interview path: passcode only
+    // (maps to backend DEMO_PUBLIC_TOKEN via x-demo-public-token). Do not use VITE_DEMO_ORCHESTRATE_SECRET.
+    const secret = options?.secretOverride ?? manualSecret;
+    if (!baseUrl || !channelId) {
+      setReportState("unavailable");
+      setEvaluation(null);
+      return;
+    }
+    if (!secret) {
+      setReportState("needs_passcode");
+      setEvaluation(null);
+      return;
+    }
+    setReportState("loading");
+    try {
+      const report = await fetchSessionReportByChannelId(baseUrl, secret, channelId, {
+        usePublicTokenHeader: true,
+      });
+      setEvaluation(report.evaluation ?? null);
+      setReportState("loaded");
+    } catch {
+      setEvaluation(null);
+      setReportState("unavailable");
+    }
+  }
 
   useEffect(() => {
     if (voice.callState !== "completed") {
       return;
     }
-    const baseUrl = import.meta.env.VITE_PUBLIC_API_BASE_URL;
-    const secret = import.meta.env.VITE_DEMO_ORCHESTRATE_SECRET;
-    const channelId = voice.externalChannelId;
-    if (!baseUrl || !secret || !channelId) {
-      setReportState("unavailable");
-      return;
-    }
-    setReportState("loading");
-    void fetchSessionReportByChannelId(baseUrl, secret, channelId)
-      .then(() => setReportState("loaded"))
-      .catch(() => setReportState("unavailable"));
+    void loadReport();
+    // Intentionally depend on call completion identity only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voice.callState, voice.externalChannelId]);
 
   return (
@@ -105,6 +134,13 @@ export function DemoApp({ mediaClient }: DemoAppProps) {
             durationSeconds={voice.durationSeconds}
             turnCount={voice.transcript.length}
             reportState={reportState}
+            evaluation={evaluation}
+            passcode={passcode}
+            onPasscodeChange={setPasscode}
+            onUnlock={() => {
+              setManualSecret(passcode);
+              void loadReport({ secretOverride: passcode });
+            }}
           />
         ) : null}
 

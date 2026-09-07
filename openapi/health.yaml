@@ -135,9 +135,16 @@ paths:
       parameters:
         - in: header
           name: x-demo-orchestrate-secret
-          required: true
+          required: false
           schema:
             type: string
+          description: Demo-operator secret (DEMO_ORCHESTRATE_SECRET or VOICE_INBOUND_SECRET). Not accepted as a substitute for x-demo-public-token.
+        - in: header
+          name: x-demo-public-token
+          required: false
+          schema:
+            type: string
+          description: Read-only public demo token (DEMO_PUBLIC_TOKEN). Must differ from inbound/operator secrets. Public list requires externalChannelId.
         - in: query
           name: limit
           schema:
@@ -149,6 +156,7 @@ paths:
           name: externalChannelId
           schema:
             type: string
+          description: Required when authenticating with x-demo-public-token
       responses:
         "200":
           description: Lightweight session list
@@ -164,18 +172,27 @@ paths:
                       type: object
         "401":
           $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
         "500":
           $ref: "#/components/responses/Error"
   /sessions/{sessionId}:
     get:
-      summary: Get a persisted session report
+      summary: Get a persisted session report with optional call evaluation
       operationId: getSession
       parameters:
         - in: header
           name: x-demo-orchestrate-secret
-          required: true
+          required: false
+          schema:
+            type: string
+        - in: header
+          name: x-demo-public-token
+          required: false
           schema:
             type: string
         - in: path
@@ -184,6 +201,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - in: query
+          name: recompute
+          required: false
+          schema:
+            type: string
+            enum: ["true", "1"]
+          description: Operator-only. Re-run deterministic session call evaluation and persist the result. Public token receives 403.
       responses:
         "200":
           description: Provider-independent session report
@@ -195,11 +219,47 @@ paths:
                 properties:
                   evaluation:
                     nullable: true
+                    type: object
+                    properties:
+                      overallStatus:
+                        type: string
+                        enum: [passed, partial, failed]
+                      scorerVersion:
+                        type: string
+                      evaluatedAt:
+                        type: string
+                        format: date-time
+                      dimensions:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, verdict, evidence]
+                          properties:
+                            id:
+                              type: string
+                              enum:
+                                [
+                                  goal_achieved,
+                                  tool_selection,
+                                  grounded_answer,
+                                  policy_compliance,
+                                ]
+                            verdict:
+                              type: string
+                              enum: [met, partial, unmet]
+                            evidence:
+                              type: array
+                              items:
+                                type: object
         "400":
           $ref: "#/components/responses/Error"
         "401":
           $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
         "404":
+          $ref: "#/components/responses/Error"
+        "429":
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
