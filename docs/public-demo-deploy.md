@@ -39,10 +39,13 @@ Optional blueprint: `render.yaml` in the repo root (service name and build/start
 ## Vapi Server URL (manual DoD)
 
 1. Open the Vapi assistant used by the demo.
-2. Set Server URL to `https://<render-host>/adapters/voice/inbound`.
-3. Ensure the inbound secret matches `VOICE_INBOUND_SECRET`.
-4. Do **not** mutate the assistant from CI.
-5. Optional: a one-off local script with a scoped API key may PATCH the assistant; never commit the key.
+2. Set Server URL to `https://<render-host>/adapters/voice/inbound` for lifecycle / transcript persistence (with `VOICE_REASONING_OWNER=vapi` so transcripts do not run `handleAgentTurn`).
+3. Register Custom Tools for `wom.get_customer_usage`, `wom.get_bill_status`, and `wom.check_service_status` with Server URL `https://<render-host>/adapters/voice/tools`.
+4. Ensure the inbound secret matches `VOICE_INBOUND_SECRET` on both URLs (`x-voice-inbound-secret`).
+5. Do **not** mutate the assistant from CI.
+6. Optional: a one-off local script with a scoped API key may PATCH the assistant; never commit the key.
+
+See [adapters/vapi-custom-tools.md](./adapters/vapi-custom-tools.md).
 
 ## Cold start
 

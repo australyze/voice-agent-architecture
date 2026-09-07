@@ -52,6 +52,8 @@ export type ToolCallRecord = {
   durationMs?: number;
   errorClass?: string;
   idempotencyKey: string;
+  /** Distinguishes channel Custom Tool path from runtime agent tool hops. */
+  invocationSource?: string;
 };
 
 export type ExecutionEventRecord = {

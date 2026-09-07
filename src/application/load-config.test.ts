@@ -24,6 +24,7 @@ describe("loadConfig", () => {
         inboundRateLimit: 30,
         inboundRateWindowMs: 60_000,
         sessionOwner: "runtime-demo",
+        reasoningOwner: "runtime",
       },
       llm: {
         mode: "fake",
@@ -31,6 +32,20 @@ describe("loadConfig", () => {
         modelId: "fake",
       },
     });
+  });
+
+  it("should_default_reasoning_owner_to_runtime", () => {
+    const config = loadConfig(VALID_ENV);
+    expect(config.voice.reasoningOwner).toBe("runtime");
+  });
+
+  it("should_accept_vapi_reasoning_owner", () => {
+    const config = loadConfig({ ...VALID_ENV, VOICE_REASONING_OWNER: "vapi" });
+    expect(config.voice.reasoningOwner).toBe("vapi");
+  });
+
+  it("should_fail_closed_when_reasoning_owner_is_invalid", () => {
+    expect(() => loadConfig({ ...VALID_ENV, VOICE_REASONING_OWNER: "both" })).toThrow(ConfigError);
   });
 
   it("should_default_listen_host_to_loopback_when_omitted", () => {
@@ -114,6 +129,7 @@ describe("loadConfig", () => {
       inboundRateLimit: 30,
       inboundRateWindowMs: 60_000,
       sessionOwner: "runtime-demo",
+      reasoningOwner: "runtime",
     });
     expect(config.llm).toEqual({
       mode: "fake",
@@ -142,6 +158,7 @@ describe("loadConfig", () => {
       inboundRateLimit: 30,
       inboundRateWindowMs: 60_000,
       sessionOwner: "runtime-demo",
+      reasoningOwner: "runtime",
     });
   });
 

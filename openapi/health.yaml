@@ -4,8 +4,9 @@ info:
   description: |
     Operational health probes, inbound voice, and the demo orchestrate surface.
     Canonical product session and /ingress/interaction contracts remain in
-    lidr-specboot/docs/api-spec.yml. The Vapi-facing URL is
-    POST /adapters/voice/inbound, not /ingress/interaction.
+    lidr-specboot/docs/api-spec.yml. The Vapi-facing URLs are
+    POST /adapters/voice/inbound and POST /adapters/voice/tools,
+    not /ingress/interaction.
     Multi-agent demo ingress is POST /demo/orchestrate.
     Session history reads are GET /sessions and GET /sessions/{sessionId}
     (canonical resources in lidr-specboot/docs/api-spec.yml).
@@ -83,6 +84,46 @@ paths:
         "413":
           $ref: "#/components/responses/Error"
         "401":
+          $ref: "#/components/responses/Error"
+        "503":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /adapters/voice/tools:
+    post:
+      summary: Vapi Custom Tool execution adapter
+      description: |
+        Authoritative tool-invocation path for Vapi-native calls.
+        Authenticates with x-voice-inbound-secret (same as inbound).
+        Executes allowlisted WOM tools through the ToolPort without handleAgentTurn.
+        Body limit 16KiB. Response maps each toolCallId to a string result.
+      operationId: postVoiceTools
+      parameters:
+        - in: header
+          name: x-voice-inbound-secret
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceToolsRequest"
+      responses:
+        "200":
+          description: Per-toolCallId results for Vapi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceToolsResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "429":
           $ref: "#/components/responses/Error"
         "503":
           $ref: "#/components/responses/Error"
@@ -370,6 +411,54 @@ components:
         status:
           type: string
           enum: [ok]
+    VoiceToolsRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: object
+          required: [type, toolCallList]
+          properties:
+            type:
+              type: string
+              enum: [tool-calls]
+            toolCallList:
+              type: array
+              minItems: 1
+              maxItems: 8
+              items:
+                type: object
+                required: [id, name]
+                properties:
+                  id:
+                    type: string
+                    maxLength: 128
+                  name:
+                    type: string
+                    maxLength: 128
+                  parameters:
+                    type: object
+                    additionalProperties: true
+            call:
+              type: object
+              properties:
+                id:
+                  type: string
+                  maxLength: 128
+    VoiceToolsResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            required: [toolCallId, result]
+            properties:
+              toolCallId:
+                type: string
+              result:
+                type: string
     ErrorResponse:
       type: object
       required: [success, error]

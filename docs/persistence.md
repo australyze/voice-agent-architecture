@@ -14,7 +14,7 @@ PostgreSQL
 
 ## Live versus historical
 
-During a call the interviewer hears and sees media from the Vapi Web SDK. After inbound processing, the backend upserts a Session (`channel = voice`), conversation turns, tool calls, and execution events. The database is **not** the live transcript source.
+During a call the interviewer hears and sees media from the Vapi Web SDK. After inbound processing, the backend upserts a Session (`channel = voice`), conversation turns, tool calls, and execution events. Tools invoked through `POST /adapters/voice/tools` persist the same `ToolCall` shape with `invocationSource: vapi_custom_tool`. The database is **not** the live transcript source.
 
 ## Setup
 

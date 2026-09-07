@@ -30,5 +30,7 @@ services:
         sync: false
       - key: VOICE_SESSION_OWNER
         value: wom-customer-service-agent
+      - key: VOICE_REASONING_OWNER
+        value: vapi
       - key: LLM_MODEL_ID
         value: fake

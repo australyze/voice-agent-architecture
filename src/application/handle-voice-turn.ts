@@ -23,6 +23,8 @@ export type HandleVoiceTurnOptions = {
   agentId?: string;
   runAgent?: (turn: VoiceTurn, correlation: VoiceTurnCorrelation) => Promise<AgentTurnResult>;
   work?: (turn: VoiceTurn) => Promise<void>;
+  /** When true, transcript events persist correlation only and do not run the agent loop. */
+  skipAgentReasoning?: boolean;
 };
 
 function isUuid(value: string): boolean {
@@ -123,6 +125,42 @@ export async function handleVoiceTurn(turn: VoiceTurn, options: HandleVoiceTurnO
             { sessionId: turn.sessionId, traceId },
           );
         }
+      }
+      return finish({
+        ok: true,
+        reply: { text: "", locale, status: "ok" },
+      });
+    }
+
+    if (options.skipAgentReasoning) {
+      if (options.persistence !== undefined) {
+        const occurredAt = turn.occurredAt.toISOString();
+        await persistSafely(
+          async () => {
+            await persistVoiceLifecycle(options.persistence as PersistencePort, turn, {
+              agentId: options.agentId ?? "runtime-demo",
+              traceId,
+            });
+            if (turn.inputText !== undefined && turn.inputText !== "") {
+              await persistConversationTurn(options.persistence as PersistencePort, {
+                sessionId: turn.sessionId,
+                role: "user",
+                text: turn.inputText,
+                createdAt: occurredAt,
+                idempotencyKey: inboundIdempotencyKey({
+                  eventType: "transcript",
+                  sessionId: turn.sessionId,
+                  occurredAt,
+                  inputText: turn.inputText,
+                  ...(turn.externalChannelId === undefined ? {} : { externalChannelId: turn.externalChannelId }),
+                  ...(turn.requestId === undefined ? {} : { requestId: turn.requestId }),
+                }),
+              });
+            }
+          },
+          options.logger,
+          { sessionId: turn.sessionId, traceId },
+        );
       }
       return finish({
         ok: true,
