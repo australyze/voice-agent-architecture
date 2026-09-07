@@ -139,6 +139,7 @@ export class SupabasePersistence implements PersistencePort {
         completed_at: input.completedAt ?? null,
         duration_ms: input.durationMs ?? null,
         error_class: input.errorClass ?? null,
+        invocation_source: input.invocationSource ?? null,
         idempotency_key: input.idempotencyKey,
       });
       return { ...input, id };
@@ -268,6 +269,7 @@ export class SupabasePersistence implements PersistencePort {
           ...(tool.completed_at == null ? {} : { completedAt: String(tool.completed_at) }),
           ...(tool.duration_ms == null ? {} : { durationMs: Number(tool.duration_ms) }),
           ...(tool.error_class == null ? {} : { errorClass: String(tool.error_class) }),
+          ...(tool.invocation_source == null ? {} : { invocationSource: String(tool.invocation_source) }),
         });
       }
       const events = await this.request<Array<Record<string, unknown>>>(

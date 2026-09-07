@@ -59,4 +59,6 @@ Default inbound session owner is `runtime-demo`. Set `VOICE_SESSION_OWNER=wom-cu
 
 The browser demo (`web/`) uses the Vapi Web SDK for live media only. It MUST NOT receive Server URL webhooks. Those POST requests stay on this inbound route. See [vapi-web-demo.md](./vapi-web-demo.md).
 
+For the Vapi-native interview path where Vapi’s LLM owns reasoning, tool execution uses `POST /adapters/voice/tools` instead of agent turns on inbound. Set `VOICE_REASONING_OWNER=vapi` so inbound transcripts do not invoke `handleAgentTurn`. See [vapi-custom-tools.md](./vapi-custom-tools.md).
+
 `lidr-specboot/docs/` methodology was not rewritten for this change.

@@ -1,0 +1,35 @@
+{
+  "version": "1",
+  "cases": [
+    {
+      "id": "channel-usage-tool",
+      "toolName": "wom.get_customer_usage",
+      "arguments": {},
+      "expect": { "ok": true, "invocationSource": "vapi_custom_tool" }
+    },
+    {
+      "id": "channel-bill-tool",
+      "toolName": "wom.get_bill_status",
+      "arguments": {},
+      "expect": { "ok": true, "invocationSource": "vapi_custom_tool" }
+    },
+    {
+      "id": "channel-service-tool",
+      "toolName": "wom.check_service_status",
+      "arguments": {},
+      "expect": { "ok": true, "invocationSource": "vapi_custom_tool" }
+    },
+    {
+      "id": "channel-deny-normalize",
+      "toolName": "demo.normalize_text",
+      "arguments": { "text": "x" },
+      "expect": { "ok": false, "code": "tool_denied" }
+    },
+    {
+      "id": "channel-invalid-args",
+      "toolName": "wom.get_customer_usage",
+      "arguments": { "extra": true },
+      "expect": { "ok": false, "code": "tool_invalid_args" }
+    }
+  ]
+}

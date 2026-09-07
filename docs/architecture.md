@@ -48,10 +48,11 @@ Dependencies point inward. Replacing a voice, LLM, store, or observability vendo
 
 ```text
 Vapi / simulator → adapters/voice → VoiceTurn → handleVoiceTurn → handleAgentTurn → VoiceReply → adapter → consumer
+Vapi Custom Tools → adapters/voice/tools → executeChannelToolInvocation → ToolPort → Vapi results
 ```
 
-- **Vapi** is the interaction adapter (first inbound implementation).
-- **Agent Runtime** owns session-owner agents (`runtime-demo` by default, optional `wom-customer-service-agent` via `VOICE_SESSION_OWNER`): prompt, LLM port, tool allowlist bound on the production tool port and on `handleAgentTurn`, traces.
+- **Vapi** is the interaction adapter (first inbound implementation). Custom Tools are a separate ingress for tool RPC when the channel owns reasoning (`VOICE_REASONING_OWNER=vapi`).
+- **Agent Runtime** owns session-owner agents (`runtime-demo` by default, optional `wom-customer-service-agent` via `VOICE_SESSION_OWNER`): prompt, LLM port, tool allowlist bound on the production tool port and on `handleAgentTurn`, traces. On the Vapi-native tool path the runtime still owns ToolPort authorization/execution and persists `invocationSource: vapi_custom_tool`.
 - **Domain** stays provider independent. Placeholder success is no longer the voice happy path.
 
 Media / channel identity (`externalChannelId`) is not business state. Sessions, conversation turns, tool calls, and execution events are persisted through the persistence port. See [persistence.md](./persistence.md).

@@ -116,6 +116,7 @@ export class MemoryPersistence implements PersistencePort {
       ...(input.completedAt === undefined ? {} : { completedAt: input.completedAt }),
       ...(input.durationMs === undefined ? {} : { durationMs: input.durationMs }),
       ...(input.errorClass === undefined ? {} : { errorClass: input.errorClass }),
+      ...(input.invocationSource === undefined ? {} : { invocationSource: input.invocationSource }),
     };
     this.toolCalls.push(record);
     this.toolKeys.set(input.idempotencyKey, record);

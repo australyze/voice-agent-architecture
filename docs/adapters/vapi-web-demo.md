@@ -49,7 +49,7 @@ Automated tests: `npm run web:test` (mocked media client, no microphone, no paid
 
 1. Start Compose PostgreSQL if you need `/health/ready`.
 2. Set root `.env` `VOICE_SESSION_OWNER=wom-customer-service-agent` and `VOICE_INBOUND_SECRET`. Keep the default `runtime-demo` for automated tests.
-3. Point the Vapi assistant Server URL at `https://<tunnel>/adapters/voice/inbound` with the inbound secret header. Vapi CLI or ngrok is optional local tooling, not a frontend runtime dependency.
+3. Point the Vapi assistant Server URL at `https://<tunnel>/adapters/voice/inbound` with the inbound secret header for lifecycle/transcript persistence. For the Vapi-native tool path, register the three WOM Custom Tools with Server URL `https://<host>/adapters/voice/tools` and the same secret header. Set backend `VOICE_REASONING_OWNER=vapi`. See [vapi-custom-tools.md](./vapi-custom-tools.md).
 4. Set `web/.env` public key and assistant id.
 5. Open the Vite URL. Confirm **WOM Customer Service AI**, **AI Demo**, capabilities, and the microphone-provider consent line. Restrict the public key to this origin in the Vapi dashboard.
 6. Click **Hablar con WOM AI**, allow the microphone.

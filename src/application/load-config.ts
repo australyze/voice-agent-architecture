@@ -13,6 +13,11 @@ export const DEFAULT_INBOUND_RATE_WINDOW_MS = 60_000;
 export const DEFAULT_VOICE_SESSION_OWNER = "runtime-demo";
 export const VOICE_SESSION_OWNERS = ["runtime-demo", "wom-customer-service-agent"] as const;
 export type VoiceSessionOwner = (typeof VOICE_SESSION_OWNERS)[number];
+export const DEFAULT_VOICE_REASONING_OWNER = "runtime";
+export const VOICE_REASONING_OWNERS = ["runtime", "vapi"] as const;
+export type VoiceReasoningOwner = (typeof VOICE_REASONING_OWNERS)[number];
+export const CHANNEL_TOOL_HARD_TIMEOUT_MS = 2000;
+export const CHANNEL_TOOL_INVOCATION_SOURCE = "vapi_custom_tool";
 const LISTEN_HOST_PATTERN = /^(?:(?:\d{1,3}\.){3}\d{1,3}|\[?[0-9a-fA-F:]+\]?|[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)$/;
 const LOCALE_PATTERN = /^[a-z]{2}(?:-[A-Z]{2})?$/;
 
@@ -133,6 +138,14 @@ const configSchema = z.object({
       (value): value is VoiceSessionOwner => (VOICE_SESSION_OWNERS as readonly string[]).includes(value),
       "VOICE_SESSION_OWNER must be runtime-demo or wom-customer-service-agent",
     ),
+  VOICE_REASONING_OWNER: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === "" ? DEFAULT_VOICE_REASONING_OWNER : value))
+    .refine(
+      (value): value is VoiceReasoningOwner => (VOICE_REASONING_OWNERS as readonly string[]).includes(value),
+      "VOICE_REASONING_OWNER must be runtime or vapi",
+    ),
 });
 
 export type VoiceConfig = {
@@ -147,6 +160,7 @@ export type VoiceConfig = {
   inboundRateLimit?: number;
   inboundRateWindowMs?: number;
   sessionOwner?: VoiceSessionOwner;
+  reasoningOwner?: VoiceReasoningOwner;
 };
 
 export type LlmConfig =
@@ -195,6 +209,7 @@ export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
     LLM_MODEL_ID: env.LLM_MODEL_ID,
     LLM_TIMEOUT_MS: env.LLM_TIMEOUT_MS,
     VOICE_SESSION_OWNER: env.VOICE_SESSION_OWNER,
+    VOICE_REASONING_OWNER: env.VOICE_REASONING_OWNER,
     SUPABASE_URL: env.SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
   });
@@ -237,6 +252,7 @@ export function loadConfig(env: NodeJS.Dict<string>): AppConfig {
       inboundRateLimit: parsed.data.VOICE_INBOUND_RATE_LIMIT,
       inboundRateWindowMs: parsed.data.VOICE_INBOUND_RATE_WINDOW_MS,
       sessionOwner: parsed.data.VOICE_SESSION_OWNER,
+      reasoningOwner: parsed.data.VOICE_REASONING_OWNER,
     },
     llm:
       parsed.data.LLM_BASE_URL !== undefined && parsed.data.LLM_API_KEY !== undefined

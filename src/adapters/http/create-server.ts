@@ -7,6 +7,7 @@ import {
   DEFAULT_LLM_MODEL_ID,
   DEFAULT_LLM_TIMEOUT_MS,
   DEFAULT_VOICE_LOCALE,
+  DEFAULT_VOICE_REASONING_OWNER,
   DEFAULT_VOICE_SESSION_OWNER,
   DEFAULT_VOICE_TIMEOUT_MS,
   type LlmConfig,
@@ -15,6 +16,7 @@ import {
 import { checkLiveness } from "../../application/check-liveness.js";
 import { checkReadiness } from "../../application/check-readiness.js";
 import { checkVoiceIntegration } from "../../application/check-voice-integration.js";
+import { executeChannelToolInvocation } from "../../application/execute-channel-tool-invocation.js";
 import { handleAgentTurn } from "../../application/handle-agent-turn.js";
 import { handleOrchestratedTurn } from "../../application/handle-orchestrated-turn.js";
 import { RUNTIME_DEMO_ALLOWLIST } from "../../domain/demo-tool.js";
@@ -63,6 +65,12 @@ import {
   mapInboundToVoiceTurn,
   mapVoiceReplyToConsumer,
 } from "../voice/inbound.js";
+import {
+  TOOLS_BODY_LIMIT_BYTES,
+  VOICE_TOOLS_PATH,
+  mapChannelToolOutcomesToVapi,
+  mapVapiToolCallsBody,
+} from "../voice/map-vapi-tools.js";
 import { ORCHESTRATION_ERROR_CODES, adapterSafeOrchestrationMessage } from "../../domain/orchestration.js";
 
 export type LivenessChecker = () => { status: "alive" };
@@ -116,6 +124,9 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
   const womOwner = sessionOwner === WOM_CUSTOMER_SERVICE_AGENT_ID;
   const allowedTools = womOwner ? WOM_CUSTOMER_SERVICE_ALLOWLIST : RUNTIME_DEMO_ALLOWLIST;
   const tools = dependencies.tools ?? createSessionOwnerToolPort(allowedTools);
+  const channelTools = createSessionOwnerToolPort(WOM_CUSTOMER_SERVICE_ALLOWLIST);
+  const reasoningOwner = voice.reasoningOwner ?? DEFAULT_VOICE_REASONING_OWNER;
+  const skipAgentReasoning = reasoningOwner === "vapi";
   const baseObservability = dependencies.observability ?? new LoggingObservability(dependencies.logger);
   const observability =
     dependencies.observability === undefined
@@ -220,27 +231,32 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
       observability,
       persistence: dependencies.persistence,
       agentId: sessionOwner,
-      runAgent: (voiceTurn, correlation) =>
-        handleAgentTurn(
-          {
-            sessionId: voiceTurn.sessionId,
-            userText: voiceTurn.inputText,
-            locale: voiceTurn.locale ?? voice.defaultLocale,
-            traceId: correlation.traceId,
-            ...(voiceTurn.requestId === undefined ? {} : { requestId: voiceTurn.requestId }),
-            ...(voiceTurn.interactionId === undefined ? {} : { interactionId: voiceTurn.interactionId }),
-          },
-          {
-            llm,
-            tools,
-            observability,
-            retrieval,
-            prompt,
-            modelId: llmConfig.modelId,
-            llmTimeoutMs: llmConfig.timeoutMs,
-            allowedTools,
-          },
-        ),
+      skipAgentReasoning,
+      ...(skipAgentReasoning
+        ? {}
+        : {
+            runAgent: (voiceTurn, correlation) =>
+              handleAgentTurn(
+                {
+                  sessionId: voiceTurn.sessionId,
+                  userText: voiceTurn.inputText,
+                  locale: voiceTurn.locale ?? voice.defaultLocale,
+                  traceId: correlation.traceId,
+                  ...(voiceTurn.requestId === undefined ? {} : { requestId: voiceTurn.requestId }),
+                  ...(voiceTurn.interactionId === undefined ? {} : { interactionId: voiceTurn.interactionId }),
+                },
+                {
+                  llm,
+                  tools,
+                  observability,
+                  retrieval,
+                  prompt,
+                  modelId: llmConfig.modelId,
+                  llmTimeoutMs: llmConfig.timeoutMs,
+                  allowedTools,
+                },
+              ),
+          }),
     });
 
     if (!result.ok) {
@@ -248,6 +264,28 @@ export async function createServer(dependencies: HttpServerDependencies): Promis
     }
 
     return mapVoiceReplyToConsumer(result.reply);
+  });
+
+  server.post(VOICE_TOOLS_PATH, { bodyLimit: TOOLS_BODY_LIMIT_BYTES }, async (request) => {
+    authenticateInbound(voice, headerValue(request.headers[VOICE_INBOUND_SECRET_HEADER]));
+    if (voice.inboundSecret !== undefined && !inboundLimiter.allow(inboundSecretHash(voice.inboundSecret))) {
+      throw new VoiceBoundaryError(VOICE_ERROR_CODES.RATE_LIMITED, "Voice inbound rate limit exceeded");
+    }
+    const mapped = mapVapiToolCallsBody(request.body);
+    const { outcomes } = await executeChannelToolInvocation(
+      {
+        calls: mapped.calls,
+        agentId: WOM_CUSTOMER_SERVICE_AGENT_ID,
+        ...(mapped.externalChannelId === undefined ? {} : { externalChannelId: mapped.externalChannelId }),
+      },
+      {
+        tools: channelTools,
+        logger: dependencies.logger,
+        observability,
+        persistence: dependencies.persistence,
+      },
+    );
+    return mapChannelToolOutcomesToVapi(outcomes);
   });
 
   const demoOrchestrateSecret = resolveDemoOrchestrateSecret(voice);

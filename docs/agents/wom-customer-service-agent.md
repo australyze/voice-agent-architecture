@@ -44,6 +44,10 @@ VOICE_SESSION_OWNER=wom-customer-service-agent
 
 Then `POST /adapters/voice/inbound` uses this prompt and allowlist. HTTP contracts are unchanged. The inbound mapper does not own WOM policy.
 
+### Vapi-native path (Option B)
+
+When `VOICE_REASONING_OWNER=vapi`, Vapi’s LLM owns conversational reasoning and tool *selection*. This runtime remains the sole authority for tool authorization/execution via `POST /adapters/voice/tools` (Custom Tools). Inbound transcripts persist without `handleAgentTurn`. See [adapters/vapi-custom-tools.md](../adapters/vapi-custom-tools.md).
+
 WOM composition uses an empty retrieval store. Facts come from mock tools, not the example knowledge document.
 
 ## LLM configuration

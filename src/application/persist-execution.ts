@@ -82,7 +82,7 @@ export function persistSpan(persistence: PersistencePort, span: TraceSpan): Prom
       },
     }),
   ];
-  if (span.kind === "tool" && span.toolName !== undefined) {
+  if (span.kind === "tool" && span.toolName !== undefined && span.source !== "vapi_custom_tool") {
     const started = new Date(Date.parse(timestamp) - (span.latencyMs ?? 0)).toISOString();
     writes.push(
       persistence.recordToolCall({
@@ -104,6 +104,7 @@ export function persistSpan(persistence: PersistencePort, span: TraceSpan): Prom
         ...(span.latencyMs === undefined ? {} : { durationMs: span.latencyMs }),
         ...(span.interactionId === undefined ? {} : { interactionId: span.interactionId }),
         ...(span.errorCode === undefined ? {} : { errorClass: span.errorCode }),
+        ...(span.source === undefined ? {} : { invocationSource: span.source }),
       }),
     );
   }
